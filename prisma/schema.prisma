@@ -1,0 +1,478 @@
+// Shree Shyam Villa - 2 — data model
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------- Enums -----------------------------
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+}
+
+enum PlotStatus {
+  AVAILABLE
+  BOOKED
+  SOLD
+  DRAW_WON
+}
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TreeSide {
+  LEFT
+  RIGHT
+}
+
+enum MemberRank {
+  NONE
+  BRONZE
+}
+
+enum PaymentPlan {
+  INSTALLMENT
+  CASHBACK
+}
+
+enum EmiStatus {
+  UPCOMING
+  DUE
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum PaymentType {
+  BOOKING
+  EMI
+  CASHBACK_FULL
+  DEVELOPMENT
+  DOCUMENTATION
+  DRAW_SETTLEMENT
+}
+
+enum PaymentMode {
+  ONLINE
+  OFFLINE
+  UPI
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  REFUNDED
+}
+
+enum IncomeType {
+  DIRECT_SPONSOR
+  CO_SPONSOR
+  SUPER_SPONSOR
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+  LEVEL_5
+  LEVEL_6
+  LEVEL_7
+}
+
+enum CommissionStatus {
+  POINTS
+  APPROVED
+  PAID
+  HOLD
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  ON_HOLD
+}
+
+enum PayoutMode {
+  BANK_TRANSFER
+  UPI
+}
+
+enum DrawStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum DrawWinnerStatus {
+  WON
+  CLAIMED
+  PENDING_DOCS
+}
+
+enum InsuranceStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  EMI_REMINDER
+  PAYMENT_VERIFIED
+  COMMISSION_EARNED
+  KYC_UPDATE
+  DRAW_RESULT
+  RANK_UPDATE
+  PAYOUT_DONE
+  WELCOME
+}
+
+enum NotificationChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SettingType {
+  NUMBER
+  STRING
+  BOOLEAN
+}
+
+// ----------------------------- Models -----------------------------
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviewedKyc      MemberKyc[]        @relation("KycReviewer")
+  verifiedPayments Payment[]          @relation("PaymentVerifier")
+  processedPayouts Payout[]           @relation("PayoutProcessor")
+  conductedDraws   DrawEvent[]        @relation("DrawConductor")
+  reviewedClaims   InsuranceClaim[]   @relation("ClaimReviewer")
+  auditLogs        AuditLog[]
+}
+
+model Plot {
+  id                   String     @id @default(uuid())
+  plotNumber           String     @unique
+  plotSize             String     @default("12x36")
+  plotPrice            Decimal    @db.Decimal(12, 2)
+  developmentCharges   Decimal    @default(0) @db.Decimal(12, 2)
+  documentationCharges Decimal    @default(0) @db.Decimal(12, 2)
+  locationBlock        String?
+  rowNumber            String?
+  roadFacing           Boolean    @default(false)
+  status               PlotStatus @default(AVAILABLE)
+  bookingDate          DateTime?
+  satbaraDocUrl        String?
+  mappingDocUrl        String?
+  entryDocUrl          String?
+  legalDocUrl          String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  member       Member?       @relation("MemberPlot")
+  drawWinners  DrawWinner[]
+}
+
+model Member {
+  id                  String      @id @default(uuid())
+  memberId            String      @unique // = plotNumber
+  plotId              String?     @unique
+  plot                Plot?       @relation("MemberPlot", fields: [plotId], references: [id])
+  fullName            String
+  aadhaarNumber       String? // encrypted
+  aadhaarLast4        String?
+  mobile              String      @unique
+  whatsapp            String?
+  email               String      @unique
+  passwordHash        String
+  sponsorId           String?
+  sponsor             Member?     @relation("Sponsor", fields: [sponsorId], references: [id])
+  referrals           Member[]    @relation("Sponsor")
+  treeParentId        String?
+  treeParent          Member?     @relation("Tree", fields: [treeParentId], references: [id])
+  treeChildren        Member[]    @relation("Tree")
+  treeSide            TreeSide?
+  treeLevel           Int         @default(0)
+  leftTeamCount       Int         @default(0)
+  rightTeamCount      Int         @default(0)
+  directReferralCount Int         @default(0)
+  rank                MemberRank  @default(NONE)
+  paymentPlan         PaymentPlan @default(INSTALLMENT)
+  kycStatus           KycStatus   @default(NOT_STARTED)
+  isActive            Boolean     @default(true)
+  isDrawEligible      Boolean     @default(false)
+  joinDate            DateTime    @default(now())
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  kyc                 MemberKyc?
+  emiSchedules        EmiSchedule[]
+  payments            Payment[]
+  earnedCommissions   CommissionLedger[] @relation("Beneficiary")
+  sourceCommissions   CommissionLedger[] @relation("SourceMember")
+  payouts             Payout[]
+  drawWins            DrawWinner[]       @relation("WinnerMember")
+  sponsorDrawBonuses  DrawWinner[]       @relation("BonusSponsor")
+  insuranceClaims     InsuranceClaim[]
+  notifications       Notification[]
+
+  @@index([sponsorId])
+  @@index([treeParentId])
+}
+
+model MemberKyc {
+  id                String    @id @default(uuid())
+  memberId          String    @unique
+  member            Member    @relation(fields: [memberId], references: [id])
+  aadhaarFrontUrl   String?
+  aadhaarBackUrl    String?
+  panCardUrl        String?
+  profilePhotoUrl   String?
+  bankName          String?
+  accountNumber     String? // encrypted
+  accountLast4      String?
+  ifscCode          String?
+  accountHolderName String?
+  nomineeName       String?
+  nomineeRelation   String?
+  nomineeAadhaar    String? // encrypted
+  nomineePhone      String?
+  reviewedById      String?
+  reviewedBy        User?     @relation("KycReviewer", fields: [reviewedById], references: [id])
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  status            KycStatus @default(PENDING)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model EmiSchedule {
+  id            String    @id @default(uuid())
+  memberId      String
+  member        Member    @relation(fields: [memberId], references: [id])
+  installmentNo Int
+  amountDue     Decimal   @db.Decimal(12, 2)
+  dueDate       DateTime
+  payByDate     DateTime
+  status        EmiStatus @default(UPCOMING)
+  createdAt     DateTime  @default(now())
+
+  payments Payment[]
+
+  @@index([memberId, status])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [id])
+  emiScheduleId   String?
+  emiSchedule     EmiSchedule?  @relation(fields: [emiScheduleId], references: [id])
+  paymentType     PaymentType
+  amount          Decimal       @db.Decimal(12, 2)
+  paymentMode     PaymentMode
+  paymentDate     DateTime      @default(now())
+  referenceNumber String?
+  receiptUrl      String?
+  gatewayTxnId    String?
+  status          PaymentStatus @default(PENDING)
+  verifiedById    String?
+  verifiedBy      User?         @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+  verifiedAt      DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  commissions CommissionLedger[]
+  payouts     Payout[]
+
+  @@index([memberId])
+}
+
+model CommissionLedger {
+  id             String           @id @default(uuid())
+  beneficiaryId  String
+  beneficiary    Member           @relation("Beneficiary", fields: [beneficiaryId], references: [id])
+  sourceMemberId String
+  sourceMember   Member           @relation("SourceMember", fields: [sourceMemberId], references: [id])
+  paymentId      String
+  payment        Payment          @relation(fields: [paymentId], references: [id])
+  incomeType     IncomeType
+  pointsEarned   Decimal          @db.Decimal(12, 2)
+  cashAmount     Decimal          @db.Decimal(12, 2)
+  status         CommissionStatus @default(POINTS)
+  payoutId       String?
+  payout         Payout?          @relation(fields: [payoutId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@unique([paymentId, beneficiaryId, incomeType])
+  @@index([beneficiaryId, status])
+}
+
+// One payout per beneficiary per triggering payment (v5.0 §2.8). Income is
+// transferred the NEXT DAY after a payment is verified, minus a 5% admin charge.
+// If the beneficiary's KYC isn't approved the payout is ON_HOLD until it is.
+model Payout {
+  id            String       @id @default(uuid())
+  memberId      String
+  member        Member       @relation(fields: [memberId], references: [id])
+  triggeredById String
+  triggeredBy   Payment      @relation(fields: [triggeredById], references: [id])
+  grossAmount   Decimal      @db.Decimal(12, 2)
+  adminCharge   Decimal      @default(0) @db.Decimal(12, 2)
+  netAmount     Decimal      @db.Decimal(12, 2)
+  payoutDate    DateTime // scheduled for next day
+  status        PayoutStatus @default(PENDING)
+  onHoldReason  String?
+  paymentMode   PayoutMode   @default(BANK_TRANSFER)
+  utrNumber     String?
+  paidAt        DateTime?
+  processedById String?
+  processedBy   User?        @relation("PayoutProcessor", fields: [processedById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  commissions CommissionLedger[]
+
+  @@unique([triggeredById, memberId])
+  @@index([memberId, status])
+  @@index([status, payoutDate])
+}
+
+model DrawEvent {
+  id            String     @id @default(uuid())
+  drawNumber    Int        @unique
+  drawDate      DateTime
+  status        DrawStatus @default(SCHEDULED)
+  eligibleCount Int        @default(0)
+  conductedById String?
+  conductedBy   User?      @relation("DrawConductor", fields: [conductedById], references: [id])
+  randomSeed    String?
+  createdAt     DateTime   @default(now())
+
+  winners DrawWinner[]
+}
+
+model DrawWinner {
+  id          String           @id @default(uuid())
+  drawEventId String
+  drawEvent   DrawEvent        @relation(fields: [drawEventId], references: [id])
+  memberId    String
+  member      Member           @relation("WinnerMember", fields: [memberId], references: [id])
+  prizeRank   Int
+  prizeName   String
+  prizeValue  Decimal?         @db.Decimal(12, 2)
+  plotId      String?
+  plot        Plot?            @relation(fields: [plotId], references: [id])
+  sponsorId   String?
+  sponsor     Member?          @relation("BonusSponsor", fields: [sponsorId], references: [id])
+  status      DrawWinnerStatus @default(WON)
+  claimedAt   DateTime?
+  createdAt   DateTime         @default(now())
+}
+
+model InsuranceClaim {
+  id                  String          @id @default(uuid())
+  memberId            String
+  member              Member          @relation(fields: [memberId], references: [id])
+  monthsPaid          Int
+  deathDate           DateTime
+  deathType           String
+  claimSubmittedAt    DateTime        @default(now())
+  nomineeName         String
+  nomineeRelation     String
+  nomineePhone        String
+  deathCertificateUrl String?
+  status              InsuranceStatus @default(SUBMITTED)
+  reviewedById        String?
+  reviewedBy          User?           @relation("ClaimReviewer", fields: [reviewedById], references: [id])
+  reviewedAt          DateTime?
+  notes               String?
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  memberId  String?
+  member    Member?             @relation(fields: [memberId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  channel   NotificationChannel
+  status    NotificationStatus  @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([memberId])
+}
+
+// ----------------------------- Config / audit -----------------------------
+model SystemSetting {
+  key       String      @id
+  value     String
+  type      SettingType @default(STRING)
+  label     String?
+  updatedAt DateTime    @updatedAt
+}
+
+model CommissionRule {
+  id          String     @id @default(uuid())
+  program     String // "SPONSOR" | "LEVEL"
+  incomeType  IncomeType
+  uplineDepth Int
+  fullAmount  Decimal    @db.Decimal(12, 2)
+  active      Boolean    @default(true)
+
+  @@unique([incomeType])
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  target    String // mobile or email
+  codeHash  String
+  purpose   String // "LOGIN" | "RESET" | "REGISTER"
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([target, purpose])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+}

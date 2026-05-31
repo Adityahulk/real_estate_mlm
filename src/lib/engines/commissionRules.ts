@@ -1,0 +1,29 @@
+import type { CommissionRule } from "./commission";
+
+// Default commission rule table (spec v5.0 Part 1.5 — CONFIRMED).
+// Total = 22% of plot price = ₹66,000. Full amounts are based on a ₹3,00,000
+// plot; the engine scales them proportionally to each payment.
+//
+// CONFIRMED with client: sponsor income and level income STACK on the same
+// uplines — depth 1 earns both DIRECT_SPONSOR (10%) and LEVEL_1 (1%), depth 2
+// earns CO_SPONSOR (2%) + LEVEL_2 (1%), etc. Because these are data, changing
+// the model is a seed edit, not a code change.
+//
+// Per ₹10,000 payment (ratio 1/30): Direct 1000, Co 200, Super 100,
+// L1–L5 100 each, L6 200, L7 200 → ₹2,200/payment, ₹66,000 lifetime.
+export const DEFAULT_COMMISSION_RULES: CommissionRule[] = [
+  // Sponsor program
+  { incomeType: "DIRECT_SPONSOR", uplineDepth: 1, fullAmount: 30000 }, // 10%
+  { incomeType: "CO_SPONSOR", uplineDepth: 2, fullAmount: 6000 }, //      2%
+  { incomeType: "SUPER_SPONSOR", uplineDepth: 3, fullAmount: 3000 }, //   1%
+  // Level program
+  { incomeType: "LEVEL_1", uplineDepth: 1, fullAmount: 3000 }, // 1%
+  { incomeType: "LEVEL_2", uplineDepth: 2, fullAmount: 3000 }, // 1%
+  { incomeType: "LEVEL_3", uplineDepth: 3, fullAmount: 3000 }, // 1%
+  { incomeType: "LEVEL_4", uplineDepth: 4, fullAmount: 3000 }, // 1%
+  { incomeType: "LEVEL_5", uplineDepth: 5, fullAmount: 3000 }, // 1%
+  { incomeType: "LEVEL_6", uplineDepth: 6, fullAmount: 6000 }, // 2%
+  { incomeType: "LEVEL_7", uplineDepth: 7, fullAmount: 6000 }, // 2%
+];
+
+export const MAX_SPONSOR_DEPTH = 7;
