@@ -89,13 +89,13 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
   return { error: undefined };
 }
 
-// Member pays an EMI (or booking) online. KYC must be APPROVED. The stub gateway
-// auto-confirms, driving the same confirmation path as a real webhook.
+// Member pays an EMI (or booking) online. KYC is not required for member-to-admin
+// payments; it is only required before commission payouts are released.
 export async function payOnlineAction(formData: FormData) {
   const id = memberId();
   const emiScheduleId = (formData.get("emiScheduleId") as string) || null;
   const member = await prisma.member.findUniqueOrThrow({ where: { id }, include: { plot: true } });
-  if (member.kycStatus !== "APPROVED") throw new Error("KYC must be approved before payment");
+  if (!member.isActive) throw new Error("Account must be approved by admin before payment");
 
   let amount: Prisma.Decimal;
   let paymentType: "BOOKING" | "EMI";

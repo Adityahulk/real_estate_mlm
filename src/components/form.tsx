@@ -3,7 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { Button } from "./ui";
 
-type ActionState = { error?: string } | undefined;
+type ActionState = { error?: string; success?: string } | undefined;
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
 export function SubmitButton({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -29,6 +29,9 @@ export function StatefulForm({
     <form action={formAction} className={className}>
       {state?.error && (
         <div className="mb-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{state.error}</div>
+      )}
+      {state?.success && (
+        <div className="mb-3 rounded-xl bg-success/10 px-3 py-2 text-sm text-success">{state.success}</div>
       )}
       {children}
     </form>

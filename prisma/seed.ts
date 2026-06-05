@@ -4,6 +4,7 @@ import { SETTING_DEFAULTS, SETTING_META } from "../src/lib/settings";
 import { DEFAULT_COMMISSION_RULES } from "../src/lib/engines/commissionRules";
 import { registerMember, COMPANY_ROOT_MEMBER_ID } from "../src/lib/services/members";
 import { confirmPayment } from "../src/lib/services/payments";
+import { isBronze } from "../src/lib/engines/eligibility";
 
 const prisma = new PrismaClient();
 
@@ -97,7 +98,6 @@ async function main() {
       { fullName: "Mahesh Joshi", mobile: "9000000004", email: "mahesh@demo.local", sponsor: "P003" },
       { fullName: "Kiran Desai", mobile: "9000000005", email: "kiran@demo.local", sponsor: "P003" },
     ];
-    const created: string[] = [];
     for (const d of demo) {
       const m = await registerMember({
         fullName: d.fullName,
@@ -108,29 +108,37 @@ async function main() {
         sponsorMemberId: d.sponsor,
         paymentPlan: "INSTALLMENT",
       });
-      created.push(m.memberId);
-      // approve KYC so they are realistic/draw-eligible
-      await prisma.member.update({ where: { id: m.id }, data: { kycStatus: "APPROVED" } });
-    }
-
-    // 7. Simulate a booking payment by the deepest member to show commission flow
-    const deepest = await prisma.member.findUnique({ where: { memberId: created[created.length - 1] } });
-    if (deepest) {
       const payment = await prisma.payment.create({
         data: {
-          memberId: deepest.id,
+          memberId: m.id,
           paymentType: "BOOKING",
           amount: new Prisma.Decimal("10000"),
-          paymentMode: "ONLINE",
-          referenceNumber: "DEMO-BOOKING",
+          paymentMode: "OFFLINE",
+          referenceNumber: `DEMO-BOOKING-${m.memberId}`,
           status: "PENDING",
         },
       });
       await confirmPayment(payment.id);
+
+      // Approve demo accounts so local logins work; real registrations remain
+      // inactive until admin verifies booking and approves them.
+      await prisma.member.update({ where: { id: m.id }, data: { kycStatus: "APPROVED", isActive: true } });
+      if (d.sponsor) {
+        const sponsor = await prisma.member.findUnique({ where: { memberId: d.sponsor } });
+        if (sponsor) {
+          const updated = await prisma.member.update({
+            where: { id: sponsor.id },
+            data: { directReferralCount: { increment: 1 } },
+          });
+          if (isBronze(updated.directReferralCount, Number(SETTING_DEFAULTS.bronze_min_referrals))) {
+            await prisma.member.update({ where: { id: sponsor.id }, data: { rank: "BRONZE" } });
+          }
+        }
+      }
     }
   }
 
-  console.log("Seed complete. Admin: admin@ssv.local / admin123. Demo members: 90000000010-5 / member123");
+  console.log("Seed complete. Admin: admin@ssv.local / admin123. Demo members: 9000000001-9000000005 / member123");
 }
 
 main()

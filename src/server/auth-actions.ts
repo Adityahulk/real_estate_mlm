@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { verifyPassword, signMember, setMemberCookie, signAdmin, setAdminCookie, clearMemberCookie, clearAdminCookie } from "@/lib/auth";
 import { registerMember } from "@/lib/services/members";
 
-export type ActionState = { error?: string } | undefined;
+export type ActionState = { error?: string; success?: string } | undefined;
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Enter full name"),
@@ -24,16 +24,17 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
     return { error: parsed.error.issues[0].message };
   }
   try {
-    const member = await registerMember({
+    await registerMember({
       ...parsed.data,
       sponsorMemberId: parsed.data.sponsorMemberId || undefined,
     });
-    const token = signMember({ sub: member.id, memberId: member.memberId });
-    setMemberCookie(token);
+    return {
+      success:
+        "Account request created. Admin approval is required after your booking amount is verified.",
+    };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Registration failed" };
   }
-  redirect("/member");
 }
 
 const loginSchema = z.object({
@@ -47,6 +48,9 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const member = await prisma.member.findUnique({ where: { mobile: parsed.data.mobile } });
   if (!member || !(await verifyPassword(parsed.data.password, member.passwordHash))) {
     return { error: "Invalid mobile or password" };
+  }
+  if (!member.isActive) {
+    return { error: "Your account is pending admin approval after booking payment verification." };
   }
   setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));
   redirect("/member");

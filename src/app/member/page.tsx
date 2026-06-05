@@ -20,8 +20,8 @@ export default async function MemberDashboard() {
         <Card className="border-warning/40 bg-warning/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="font-medium">Complete your KYC to start payments</div>
-              <div className="text-sm text-muted-foreground">Payments are unlocked once your KYC is approved.</div>
+              <div className="font-medium">Complete your KYC to receive payouts</div>
+              <div className="text-sm text-muted-foreground">Installment payments are allowed without KYC, but income payouts stay on hold until KYC is approved.</div>
             </div>
             <Link href="/member/kyc"><Button>Complete KYC</Button></Link>
           </div>

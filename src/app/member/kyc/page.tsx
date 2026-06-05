@@ -11,7 +11,7 @@ export default async function KycPage() {
       <Card className="p-6">
         <div className="flex items-center gap-3">
           <Badge tone="success">APPROVED</Badge>
-          <span className="font-medium">Your KYC is approved. You can make payments.</span>
+          <span className="font-medium">Your KYC is approved. Your income payouts can be released.</span>
         </div>
       </Card>
     );

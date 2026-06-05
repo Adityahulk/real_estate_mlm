@@ -12,6 +12,7 @@ export async function currentMember() {
     include: { plot: true, kyc: true, sponsor: true },
   });
   if (!member) redirect("/login");
+  if (!member.isActive) redirect("/login");
   return member;
 }
 
