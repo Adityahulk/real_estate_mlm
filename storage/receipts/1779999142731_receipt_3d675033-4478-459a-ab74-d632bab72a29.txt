@@ -1,0 +1,12 @@
+SHREE SHYAM VILLA - 2
+Payment Receipt
+----------------------------------------
+Receipt for Payment: 3d675033-4478-459a-ab74-d632bab72a29
+Member ID: P006
+Name: Test Verifier
+Type: BOOKING
+Amount: ₹10,000.00
+Mode: ONLINE
+Reference: txn_stub_ac2a60b44b615d0c
+Date: 2026-05-28
+Status: VERIFIED

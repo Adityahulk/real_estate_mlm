@@ -1,0 +1,12 @@
+SHREE SHYAM VILLA - 2
+Payment Receipt
+----------------------------------------
+Receipt for Payment: dfc42d5c-4114-4f59-a122-99466c17b115
+Member ID: P005
+Name: Kiran Desai
+Type: BOOKING
+Amount: ₹10,000.00
+Mode: ONLINE
+Reference: DEMO-BOOKING
+Date: 2026-05-28
+Status: VERIFIED
