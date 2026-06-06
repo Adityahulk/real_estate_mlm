@@ -12,6 +12,9 @@ const items = [
   { href: "/admin/plots", label: "Plots" },
   { href: "/admin/payments", label: "Payments" },
   { href: "/admin/payouts", label: "Payouts" },
+  { href: "/admin/draws", label: "Lucky Draw" },
+  { href: "/admin/operations", label: "Operations" },
+  { href: "/admin/reports", label: "Reports" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

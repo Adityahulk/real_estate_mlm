@@ -8,11 +8,13 @@ const emiTone = { PAID: "success", DUE: "warning", OVERDUE: "danger", UPCOMING: 
 
 export default async function PaymentsPage() {
   const me = await currentMember();
-  const [schedule, bookingPaid, payments] = await Promise.all([
+  const [schedule, bookingPaid, payments, cashbackCredits] = await Promise.all([
     prisma.emiSchedule.findMany({ where: { memberId: me.id }, orderBy: { installmentNo: "asc" } }),
     prisma.payment.findFirst({ where: { memberId: me.id, paymentType: "BOOKING", status: "VERIFIED" } }),
     prisma.payment.findMany({ where: { memberId: me.id }, orderBy: { createdAt: "desc" } }),
+    prisma.cashbackCredit.findMany({ where: { memberId: me.id }, orderBy: { monthNo: "asc" } }),
   ]);
+  const cashbackPaid = payments.some((payment) => payment.paymentType === "CASHBACK_FULL" && payment.status === "VERIFIED");
 
   return (
     <div className="space-y-4">
@@ -29,6 +31,28 @@ export default async function PaymentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {me.paymentPlan === "CASHBACK" && (
+        <Card>
+          <CardHeader><CardTitle>Cashback Plan</CardTitle></CardHeader>
+          <CardContent>
+            {!cashbackPaid ? (
+              <form action={payOnlineAction}>
+                <Button type="submit">Pay Remaining Full Amount</Button>
+              </form>
+            ) : (
+              <div className="space-y-1 text-sm">
+                {cashbackCredits.map((credit) => (
+                  <div key={credit.id} className="flex justify-between border-b py-1.5 last:border-0">
+                    <span>Month {credit.monthNo} · {credit.creditDate.toISOString().slice(0, 10)}</span>
+                    <span>{formatINR(credit.amount)} · <Badge tone={credit.status === "PAID" ? "success" : "neutral"}>{credit.status}</Badge></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle>EMI Schedule</CardTitle></CardHeader>

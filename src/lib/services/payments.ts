@@ -7,6 +7,7 @@ import { getNumberSetting } from "../settings";
 import { notifier, storage } from "../integrations";
 import { formatINR, applyAdminCharge, round2 } from "../money";
 import { addDays } from "../engines/emi";
+import { createCashbackCreditsTx } from "./operations";
 
 // The single confirmation path used by BOTH online (webhook) and offline (admin)
 // payments. Idempotent: re-running on an already-verified payment is a no-op.
@@ -43,6 +44,10 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
         where: { id: payment.member.plotId },
         data: { bookingDate: payment.paymentDate },
       });
+    }
+
+    if (payment.paymentType === "CASHBACK_FULL" && payment.member.plot) {
+      await createCashbackCreditsTx(tx, payment.memberId, payment.member.plot.plotPrice, payment.paymentDate);
     }
 
     // 4. Commission engine — walk the SPONSOR chain and post points.

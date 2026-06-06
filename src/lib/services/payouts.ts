@@ -4,8 +4,10 @@ import { formatINR } from "../money";
 
 // Lists payouts grouped by status for the admin screen.
 export async function payoutSummary() {
-  const [pending, onHold, paid] = await Promise.all([
-    prisma.payout.aggregate({ where: { status: "PENDING" }, _sum: { netAmount: true }, _count: true }),
+  const dueBy = endOfToday();
+  const [pending, upcoming, onHold, paid] = await Promise.all([
+    prisma.payout.aggregate({ where: { status: "PENDING", payoutDate: { lte: dueBy } }, _sum: { netAmount: true }, _count: true }),
+    prisma.payout.aggregate({ where: { status: "PENDING", payoutDate: { gt: dueBy } }, _sum: { netAmount: true }, _count: true }),
     prisma.payout.aggregate({ where: { status: "ON_HOLD" }, _sum: { netAmount: true }, _count: true }),
     prisma.payout.aggregate({ where: { status: "PAID" }, _sum: { netAmount: true }, _count: true }),
   ]);
@@ -16,6 +18,7 @@ export async function payoutSummary() {
   });
   return {
     pending: { count: pending._count, net: pending._sum.netAmount?.toNumber() ?? 0 },
+    upcoming: { count: upcoming._count, net: upcoming._sum.netAmount?.toNumber() ?? 0 },
     onHold: { count: onHold._count, net: onHold._sum.netAmount?.toNumber() ?? 0 },
     paid: { count: paid._count, net: paid._sum.netAmount?.toNumber() ?? 0 },
     recent,
@@ -24,19 +27,28 @@ export async function payoutSummary() {
 
 // Executes all due PENDING payouts via the (stubbed) bulk transfer, marks them
 // PAID with a UTR, flips their commission ledger lines to PAID, and notifies.
-export async function processDuePayouts(processedById: string) {
+export async function processDuePayouts(processedById: string, payoutIds?: string[]) {
   const due = await prisma.payout.findMany({
-    where: { status: "PENDING", payoutDate: { lte: endOfToday() } },
+    where: {
+      status: "PENDING",
+      payoutDate: { lte: endOfToday() },
+      ...(payoutIds?.length ? { id: { in: payoutIds } } : {}),
+    },
     include: { member: { select: { id: true, memberId: true, whatsapp: true, mobile: true } } },
   });
-  if (!due.length) return { processed: 0 };
+  if (!due.length) return { processed: 0, failed: 0 };
 
+  const transferTotals = new Map<string, number>();
+  for (const p of due) {
+    transferTotals.set(p.memberId, (transferTotals.get(p.memberId) ?? 0) + p.netAmount.toNumber());
+  }
   const results = await payoutProvider.bulkTransfer(
-    due.map((p) => ({ memberId: p.memberId, amount: p.netAmount.toNumber(), mode: "BANK_TRANSFER" }))
+    Array.from(transferTotals, ([memberId, amount]) => ({ memberId, amount, mode: "BANK_TRANSFER" }))
   );
   const resultByMember = new Map(results.map((r) => [r.memberId, r]));
 
   let processed = 0;
+  let failed = 0;
   for (const p of due) {
     const r = resultByMember.get(p.memberId);
     const success = r?.success ?? false;
@@ -73,9 +85,11 @@ export async function processDuePayouts(processedById: string) {
         title: "Income credited",
         message: `${formatINR(p.netAmount)} credited to your account. UTR ${r?.utr}`,
       });
+    } else {
+      failed++;
     }
   }
-  return { processed };
+  return { processed, failed };
 }
 
 // When a member's KYC is approved, release their held payouts to PENDING so the

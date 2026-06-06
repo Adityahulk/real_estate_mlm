@@ -9,7 +9,7 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
       <Card className="w-full max-w-md p-6">
         <h1 className="text-xl font-semibold">Join Shree Shyam Villa – 2</h1>
         <p className="mb-4 mt-1 text-sm text-muted-foreground">
-          A plot will be assigned to you. Admin approval happens after your booking amount is verified.
+          Submit your application first. Admin will collect the token amount, approve it, and assign the next plot number.
         </p>
         <StatefulForm action={registerAction}>
           <Field label="Full Name (as per Aadhaar)">
@@ -30,8 +30,8 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
             <Input name="password" type="password" placeholder="At least 6 characters" />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Referred By Plot Number (optional)">
-              <Input name="sponsorMemberId" defaultValue={searchParams.ref ?? ""} placeholder="Blank if no referral" />
+            <Field label="Referred By Plot Number">
+              <Input name="sponsorMemberId" defaultValue={searchParams.ref ?? ""} placeholder="e.g. P001" required />
             </Field>
             <Field label="Payment Plan">
               <Select name="paymentPlan" defaultValue="INSTALLMENT">

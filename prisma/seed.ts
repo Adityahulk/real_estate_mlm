@@ -122,7 +122,10 @@ async function main() {
 
       // Approve demo accounts so local logins work; real registrations remain
       // inactive until admin verifies booking and approves them.
-      await prisma.member.update({ where: { id: m.id }, data: { kycStatus: "APPROVED", isActive: true } });
+      await prisma.member.update({
+        where: { id: m.id },
+        data: { kycStatus: "APPROVED", isActive: true, isDrawEligible: true },
+      });
       if (d.sponsor) {
         const sponsor = await prisma.member.findUnique({ where: { memberId: d.sponsor } });
         if (sponsor) {

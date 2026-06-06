@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { hashPassword } from "../password";
 import { encryptPII, last4 } from "../crypto";
 import { findBfsPlacement, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
+import { isBronze } from "../engines/eligibility";
 import { getNumberSetting, getBoolSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
 import { Prisma } from "@prisma/client";
@@ -18,6 +19,146 @@ export interface RegisterInput {
   sponsorMemberId?: string; // the human-facing member_id of the sponsor
   paymentPlan?: "INSTALLMENT" | "CASHBACK";
   preferredSide?: "LEFT" | "RIGHT";
+}
+
+export async function createMemberApplication(input: RegisterInput) {
+  if (!input.sponsorMemberId) throw new Error("Referred By Plot Number is required");
+
+  const sponsor = await prisma.member.findUnique({
+    where: { memberId: input.sponsorMemberId },
+    select: { id: true, isActive: true },
+  });
+  if (!sponsor || !sponsor.isActive) throw new Error("Invalid referred by plot number");
+
+  const [existingMember, existingApplication] = await Promise.all([
+    prisma.member.findFirst({ where: { OR: [{ mobile: input.mobile }, { email: input.email }] } }),
+    prisma.memberApplication.findFirst({ where: { OR: [{ mobile: input.mobile }, { email: input.email }] } }),
+  ]);
+  if (existingMember) throw new Error("A member with this mobile or email already exists");
+  if (existingApplication) throw new Error("An application with this mobile or email already exists");
+
+  return prisma.memberApplication.create({
+    data: {
+      fullName: input.fullName,
+      aadhaarNumber: encryptPII(input.aadhaarNumber),
+      aadhaarLast4: last4(input.aadhaarNumber),
+      mobile: input.mobile,
+      whatsapp: input.whatsapp ?? input.mobile,
+      email: input.email,
+      passwordHash: await hashPassword(input.password),
+      sponsorId: sponsor.id,
+      paymentPlan: input.paymentPlan ?? "INSTALLMENT",
+    },
+  });
+}
+
+export async function approveMemberApplication(args: {
+  applicationId: string;
+  tokenAmount: number;
+  paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "OFFLINE";
+  referenceNumber?: string;
+}) {
+  const minRef = await getNumberSetting("bronze_min_referrals");
+
+  return prisma.$transaction(async (tx) => {
+    const application = await tx.memberApplication.findUnique({ where: { id: args.applicationId } });
+    if (!application || application.status !== "PENDING") throw new Error("Pending application not found");
+
+    const duplicate = await tx.member.findFirst({
+      where: { OR: [{ mobile: application.mobile }, { email: application.email }] },
+    });
+    if (duplicate) throw new Error("A member with this mobile or email already exists");
+
+    const plot = await tx.plot.findFirst({
+      where: { status: "AVAILABLE" },
+      orderBy: { plotNumber: "asc" },
+    });
+    if (!plot) throw new Error("No plots available");
+
+    const nodes = await tx.member.findMany({
+      where: { NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
+      select: { id: true, treeParentId: true, treeSide: true },
+      orderBy: { joinDate: "asc" },
+    });
+    const placement = nodes.length ? findBfsPlacement(nodes as TreeNode[], nodes[0].id) : null;
+
+    const member = await tx.member.create({
+      data: {
+        memberId: plot.plotNumber,
+        plotId: plot.id,
+        fullName: application.fullName,
+        aadhaarNumber: application.aadhaarNumber,
+        aadhaarLast4: application.aadhaarLast4,
+        mobile: application.mobile,
+        whatsapp: application.whatsapp,
+        email: application.email,
+        passwordHash: application.passwordHash,
+        sponsorId: application.sponsorId,
+        treeParentId: placement?.parentId,
+        treeSide: placement?.side as Side | undefined,
+        treeLevel: placement?.level ?? 0,
+        paymentPlan: application.paymentPlan,
+        kycStatus: "NOT_STARTED",
+        isActive: true,
+      },
+    });
+
+    await tx.plot.update({ where: { id: plot.id }, data: { status: "BOOKED" } });
+
+    if (placement) {
+      const allForChain = await tx.member.findMany({
+        where: { NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
+        select: { id: true, treeParentId: true, treeSide: true },
+      });
+      const parentOf = new Map(
+        allForChain.map((m) => [m.id, { parentId: m.treeParentId, side: m.treeSide as Side | null }])
+      );
+      const incs = ancestorIncrements({
+        newNodeParentId: placement.parentId,
+        newNodeSide: placement.side,
+        parentOf,
+      });
+      for (const inc of incs) {
+        await tx.member.update({
+          where: { id: inc.ancestorId },
+          data:
+            inc.side === "LEFT"
+              ? { leftTeamCount: { increment: 1 } }
+              : { rightTeamCount: { increment: 1 } },
+        });
+      }
+    }
+
+    const sponsor = await tx.member.update({
+      where: { id: application.sponsorId },
+      data: { directReferralCount: { increment: 1 } },
+    });
+    if (isBronze(sponsor.directReferralCount, minRef) && sponsor.rank !== "BRONZE") {
+      await tx.member.update({ where: { id: sponsor.id }, data: { rank: "BRONZE" } });
+    }
+
+    if (application.paymentPlan === "INSTALLMENT") {
+      await createInstallmentScheduleTx(tx, member.id, plot.plotPrice);
+    }
+
+    const payment = await tx.payment.create({
+      data: {
+        memberId: member.id,
+        paymentType: "BOOKING",
+        amount: new Prisma.Decimal(args.tokenAmount),
+        paymentMode: args.paymentMode,
+        referenceNumber: args.referenceNumber,
+        status: "PENDING",
+      },
+    });
+
+    await tx.memberApplication.update({
+      where: { id: application.id },
+      data: { status: "APPROVED" },
+    });
+
+    return { member, payment };
+  });
 }
 
 export async function registerMember(input: RegisterInput) {
