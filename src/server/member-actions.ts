@@ -98,12 +98,23 @@ export async function payOnlineAction(formData: FormData) {
   if (!member.isActive) throw new Error("Account must be approved by admin before payment");
 
   let amount: Prisma.Decimal;
-  let paymentType: "BOOKING" | "EMI";
+  let paymentType: "BOOKING" | "EMI" | "CASHBACK_FULL";
   if (emiScheduleId) {
     const emi = await prisma.emiSchedule.findUniqueOrThrow({ where: { id: emiScheduleId } });
     if (emi.status === "PAID") throw new Error("This installment is already paid");
     amount = emi.amountDue;
     paymentType = "EMI";
+  } else if (member.paymentPlan === "CASHBACK") {
+    const alreadyPaid = await prisma.payment.findFirst({
+      where: { memberId: id, paymentType: "CASHBACK_FULL", status: "VERIFIED" },
+    });
+    if (alreadyPaid) throw new Error("Cashback plan full payment is already paid");
+    const verified = await prisma.payment.aggregate({
+      where: { memberId: id, status: "VERIFIED" },
+      _sum: { amount: true },
+    });
+    amount = member.plot!.plotPrice.minus(verified._sum.amount ?? 0);
+    paymentType = "CASHBACK_FULL";
   } else {
     // booking payment
     const alreadyBooked = await prisma.payment.findFirst({
@@ -131,4 +142,35 @@ export async function payOnlineAction(formData: FormData) {
   await confirmPayment(payment.id);
   revalidatePath("/member/payments");
   revalidatePath("/member");
+}
+
+const insuranceSchema = z.object({
+  deathDate: z.string().min(1),
+  deathType: z.string().min(1),
+});
+
+export async function submitInsuranceClaimAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const id = memberId();
+  const parsed = insuranceSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const member = await prisma.member.findUniqueOrThrow({ where: { id }, include: { kyc: true } });
+  if (!member.kyc?.nomineeName || !member.kyc.nomineeRelation || !member.kyc.nomineePhone) {
+    return { error: "Complete nominee KYC details before submitting an insurance claim" };
+  }
+  const monthsPaid = await prisma.emiSchedule.count({ where: { memberId: id, status: "PAID" } });
+  const deathCertificateUrl = await saveFile(formData.get("deathCertificate"), "insurance");
+  await prisma.insuranceClaim.create({
+    data: {
+      memberId: id,
+      monthsPaid,
+      deathDate: new Date(parsed.data.deathDate),
+      deathType: parsed.data.deathType,
+      nomineeName: member.kyc.nomineeName,
+      nomineeRelation: member.kyc.nomineeRelation,
+      nomineePhone: member.kyc.nomineePhone,
+      deathCertificateUrl,
+    },
+  });
+  revalidatePath("/member/insurance");
+  return { success: "Insurance claim submitted for admin review" };
 }

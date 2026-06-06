@@ -24,6 +24,7 @@ export default function LoginPage() {
             Create an account
           </Link>
         </p>
+        <p className="mt-2 text-center text-sm"><Link href="/forgot-password" className="text-brand-foreground underline">Forgot password?</Link></p>
       </Card>
     </main>
   );

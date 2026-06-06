@@ -28,6 +28,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+button,
+[role="button"],
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled):active,
+[role="button"]:active,
+summary:active {
+  transform: scale(0.98);
+  filter: brightness(0.95);
+}
+
 .bg-brand-gradient {
   background-image: linear-gradient(135deg, hsl(38 92% 52%), hsl(26 90% 46%));
 }

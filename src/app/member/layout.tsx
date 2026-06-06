@@ -10,6 +10,10 @@ const items = [
   { href: "/member/plot", label: "My Plot" },
   { href: "/member/payments", label: "Payments & EMI" },
   { href: "/member/commissions", label: "Points & Income" },
+  { href: "/member/draws", label: "Lucky Draw" },
+  { href: "/member/insurance", label: "Insurance" },
+  { href: "/member/notifications", label: "Notifications" },
+  { href: "/member/rewards", label: "Rank & Rewards" },
   { href: "/member/tree", label: "My Team" },
   { href: "/member/referral", label: "Refer & Earn" },
 ];

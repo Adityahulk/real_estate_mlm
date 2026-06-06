@@ -6,11 +6,21 @@ import { Button } from "./ui";
 type ActionState = { error?: string; success?: string } | undefined;
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
-export function SubmitButton({ children, className }: { children: React.ReactNode; className?: string }) {
+export function SubmitButton({
+  children,
+  className,
+  disabled,
+  pendingText = "Please wait…",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  pendingText?: string;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className={className} size="lg">
-      {pending ? "Please wait…" : children}
+    <Button type="submit" disabled={disabled || pending} className={className} size="lg" aria-busy={pending}>
+      {pending ? pendingText : children}
     </Button>
   );
 }
