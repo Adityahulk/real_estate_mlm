@@ -61,6 +61,9 @@ export async function sendEmailOtp(to: string, otp: string, purpose: "VERIFY" | 
   const html = buildHtml(heading, body, otp);
   const text = `${heading}\n\nYour OTP: ${otp}\n\nExpires in 15 minutes.`;
 
+  const withTimeout = <T>(promise: Promise<T>, ms = 10000): Promise<T> =>
+    Promise.race([promise, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Email send timed out after 10s")), ms))]);
+
   // ── SMTP (Gmail / any SMTP) ───────────────────────────────
   if (process.env.SMTP_HOST || process.env.SMTP_USER) {
     const nodemailer = await import("nodemailer");
@@ -68,13 +71,13 @@ export async function sendEmailOtp(to: string, otp: string, purpose: "VERIFY" | 
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       port: Number(process.env.SMTP_PORT || 465),
       secure: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) === 465 : true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 8000,
     });
     const from = process.env.SMTP_FROM || `${APP_NAME} <${process.env.SMTP_USER}>`;
-    await transporter.sendMail({ from, to, subject, html, text });
+    await withTimeout(transporter.sendMail({ from, to, subject, html, text }));
     return;
   }
 
@@ -83,7 +86,7 @@ export async function sendEmailOtp(to: string, otp: string, purpose: "VERIFY" | 
     const { Resend } = await import("resend");
     const resend = new Resend(process.env.RESEND_API_KEY);
     const from = process.env.RESEND_FROM_EMAIL || `${APP_NAME} <onboarding@resend.dev>`;
-    const { error } = await resend.emails.send({ from, to, subject, html, text });
+    const { error } = await withTimeout(resend.emails.send({ from, to, subject, html, text }));
     if (error) throw new Error(`Resend error: ${error.message}`);
     return;
   }

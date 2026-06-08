@@ -29,11 +29,20 @@ export async function sendEmailVerificationAction(_prev: ActionState, formData: 
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     },
   });
-  await notifier.send({ channel: "EMAIL", to: email, title: "Verify Your Email", message: `Your OTP is ${code}. It expires in 15 minutes.` });
 
-  if (!process.env.RESEND_API_KEY) {
-    return { success: `OTP (dev mode): ${code}`, data: { email } };
+  const hasEmailProvider = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
+  if (!hasEmailProvider) {
+    // Dev mode — show OTP in UI
+    return { success: `[DEV] OTP: ${code} — no email provider configured`, data: { email } };
   }
+
+  try {
+    await notifier.send({ channel: "EMAIL", to: email, title: "Verify Your Email", message: `Your OTP is ${code}. It expires in 15 minutes.` });
+  } catch (e) {
+    console.error("Email send failed:", e);
+    return { error: `Failed to send OTP email: ${e instanceof Error ? e.message : "Unknown error"}` };
+  }
+
   return { success: `OTP sent to ${email}. Enter it below to continue.`, data: { email } };
 }
 
@@ -140,9 +149,15 @@ export async function requestPasswordResetAction(_prev: ActionState, formData: F
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     },
   });
-  await notifier.send({ channel: "EMAIL", to: email, title: "Password reset code", message: `Your reset code is ${code}. It expires in 15 minutes.` });
-  if ((process.env.INTEGRATIONS_MODE || "stub") === "stub") {
-    return { success: `OTP generated for testing: ${code}. Verify it below to reset your password.` };
+  const hasEmailProvider = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
+  if (!hasEmailProvider) {
+    return { success: `[DEV] Reset OTP: ${code}` };
+  }
+  try {
+    await notifier.send({ channel: "EMAIL", to: email, title: "Password reset code", message: `Your reset code is ${code}. It expires in 15 minutes.` });
+  } catch (e) {
+    console.error("Email send failed:", e);
+    return { error: `Failed to send OTP: ${e instanceof Error ? e.message : "Unknown error"}` };
   }
   return { success: "OTP sent to your registered email. Verify it below to reset your password." };
 }
