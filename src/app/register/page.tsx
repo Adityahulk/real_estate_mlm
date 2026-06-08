@@ -1,12 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState } from "react-dom";
+import { useFormState, useFormStatus } from "react-dom";
 import { useState } from "react";
 import { registerAction, sendEmailVerificationAction } from "@/server/auth-actions";
 import { SubmitButton } from "@/components/form";
 import { Field, Input, Select, Card } from "@/components/ui";
 import { AuthShell } from "@/components/auth-shell";
+
+function SendOtpButton({ sent }: { sent: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="mb-0.5 inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:brightness-105 disabled:opacity-60"
+    >
+      {pending ? (
+        <span className="flex items-center gap-2">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          Sending…
+        </span>
+      ) : sent ? "Resend OTP" : "Send OTP"}
+    </button>
+  );
+}
 
 export default function RegisterPage({ searchParams }: { searchParams: { ref?: string } }) {
   const [otpSentTo, setOtpSentTo] = useState<string | null>(null);
@@ -27,8 +48,6 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
     },
     undefined
   );
-
-  const otpPending = false; // useFormState doesn't expose pending; SubmitButton handles it
 
   const registrationSuccess = regState?.success && !regState.error;
 
@@ -62,19 +81,11 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
                   />
                 </Field>
               </div>
-              <button
-                type="submit"
-                disabled={otpPending}
-                className="mb-0.5 inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:brightness-105 disabled:opacity-50"
-              >
-                {otpPending ? "Sending…" : otpSentTo ? "Resend OTP" : "Send OTP"}
-              </button>
+              <SendOtpButton sent={!!otpSentTo} />
             </div>
 
             {otpState?.error && <p className="text-sm text-destructive">{otpState.error}</p>}
-            {otpState?.success && (
-              <p className="text-sm text-green-700">{otpState.success}</p>
-            )}
+            {otpState?.success && <p className="text-sm text-green-700">{otpState.success}</p>}
           </form>
 
           {otpSentTo && (
