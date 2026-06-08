@@ -40,10 +40,7 @@ END $$;
 -- Add unique constraint
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE constraint_name = 'Payout_triggeredById_memberId_key'
-  ) THEN
+  IF to_regclass('"Payout_triggeredById_memberId_key"') IS NULL THEN
     ALTER TABLE "Payout" ADD CONSTRAINT "Payout_triggeredById_memberId_key"
       UNIQUE ("triggeredById", "memberId");
   END IF;

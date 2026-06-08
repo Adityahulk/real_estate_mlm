@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-2xl border bg-card shadow-sm", className)}
+      className={cn("proposal-panel rounded-lg shadow-[0_8px_24px_rgba(36,18,5,0.05)]", className)}
       {...props}
     />
   );
@@ -15,7 +15,7 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-base font-semibold tracking-tight", className)} {...props} />;
+  return <h3 className={cn("text-base font-bold uppercase tracking-normal", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -43,7 +43,7 @@ export function Button({ className, variant = "primary", size = "md", ...props }
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex items-center justify-center gap-2 rounded-md font-semibold transition active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         variants[variant],
         sizes[size],
         className
@@ -58,7 +58,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        "h-10 w-full rounded-xl border bg-card px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring placeholder:text-muted-foreground",
+        "h-10 w-full rounded-md border bg-card px-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground",
         className
       )}
       {...props}
@@ -72,7 +72,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
     <select
       ref={ref}
       className={cn(
-        "h-10 w-full rounded-xl border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring",
+        "h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-ring/20",
         className
       )}
       {...props}
@@ -114,7 +114,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold uppercase",
         badgeTones[tone],
         className
       )}
@@ -126,9 +126,9 @@ export function Badge({
 
 export function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <Card className="p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
+    <Card className="border-l-4 border-l-brand p-4">
+      <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-bold">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </Card>
   );

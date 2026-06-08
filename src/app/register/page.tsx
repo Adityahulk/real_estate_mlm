@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { registerAction } from "@/server/auth-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
-import { Card, Field, Input, Select } from "@/components/ui";
+import { Field, Input, Select } from "@/components/ui";
+import { AuthShell } from "@/components/auth-shell";
 
 export default function RegisterPage({ searchParams }: { searchParams: { ref?: string } }) {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-md p-6">
-        <h1 className="text-xl font-semibold">Join Shree Shyam Villa – 2</h1>
-        <p className="mb-4 mt-1 text-sm text-muted-foreground">
-          Submit your application first. Admin will collect the token amount, approve it, and assign the next plot number.
-        </p>
+    <AuthShell wide eyebrow="Member Application" title="Own Your Plot" description="Submit your application. After token collection and admin approval, the next available plot number becomes your Member ID.">
         <StatefulForm action={registerAction}>
           <Field label="Full Name (as per Aadhaar)">
             <Input name="fullName" placeholder="Full name" />
@@ -44,11 +40,10 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
         </StatefulForm>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already a member?{" "}
-          <Link href="/login" className="font-medium text-brand-foreground underline">
+          <Link href="/login" className="font-medium text-brand underline">
             Login
           </Link>
         </p>
-      </Card>
-    </main>
+    </AuthShell>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentMember, memberDashboard } from "@/lib/services/queries";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { PageHeading } from "@/components/brand";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
 
@@ -11,10 +12,7 @@ export default async function MemberDashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Namaste, {me.fullName.split(" ")[0]} 🙏</h1>
-        <p className="text-sm text-muted-foreground">Member ID {me.memberId} · joined {me.joinDate.toISOString().slice(0, 10)}</p>
-      </div>
+      <PageHeading eyebrow={`Member ID ${me.memberId}`} title={`Welcome, ${me.fullName.split(" ")[0]}`} description={`Plot owner since ${me.joinDate.toISOString().slice(0, 10)}`} />
 
       {me.kycStatus !== "APPROVED" && (
         <Card className="border-warning/40 bg-warning/5 p-4">

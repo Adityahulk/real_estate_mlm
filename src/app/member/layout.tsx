@@ -3,6 +3,7 @@ import { currentMember } from "@/lib/services/queries";
 import { SideNav } from "@/components/nav";
 import { logoutMemberAction } from "@/server/auth-actions";
 import { Button } from "@/components/ui";
+import { Brand } from "@/components/brand";
 
 const items = [
   { href: "/member", label: "Dashboard" },
@@ -22,15 +23,16 @@ export default async function MemberLayout({ children }: { children: React.React
   const member = await currentMember();
   return (
     <div className="min-h-screen">
-      <header className="bg-brand-gradient text-brand-foreground">
+      <header className="border-b bg-card shadow-sm">
+        <div className="brand-rule" />
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/member" className="font-semibold">Shree Shyam Villa – 2</Link>
+          <Brand href="/member" compact />
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden sm:inline">
               {member.fullName} · <strong>{member.memberId}</strong>
             </span>
             <form action={logoutMemberAction}>
-              <Button size="sm" variant="outline" className="border-white/50 bg-white/10 text-brand-foreground">
+              <Button size="sm" variant="outline">
                 Logout
               </Button>
             </form>
@@ -44,7 +46,7 @@ export default async function MemberLayout({ children }: { children: React.React
         <main className="min-w-0 flex-1">
           <div className="mb-4 flex gap-2 overflow-x-auto md:hidden">
             {items.map((i) => (
-              <Link key={i.href} href={i.href} className="whitespace-nowrap rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
+              <Link key={i.href} href={i.href} className="whitespace-nowrap rounded-md border border-l-2 border-l-brand bg-card px-3 py-1.5 text-xs font-semibold">
                 {i.label}
               </Link>
             ))}

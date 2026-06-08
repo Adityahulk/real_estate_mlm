@@ -6,6 +6,7 @@ import { approveApplicationAction } from "@/server/admin-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Stat } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { PageHeading } from "@/components/brand";
 
 export default async function AdminOverview() {
   const [o, applications, bookingAmount] = await Promise.all([
@@ -20,7 +21,7 @@ export default async function AdminOverview() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Overview</h1>
+      <PageHeading eyebrow="Administration" title="Project Overview" description="Monitor applications, plots, collections, commissions, and daily operations." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total Members" value={o.totalMembers} sub={`${o.activeMembers} active`} />
         <Stat label="Pending Applications" value={applications.length} sub={`${o.pendingKyc} pending KYC`} />
