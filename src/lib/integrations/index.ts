@@ -141,7 +141,8 @@ class StubRandomSource implements RandomSource {
 // ---------------------------- Wiring ----------------------------
 export const paymentGateway: PaymentGateway = new StubPaymentGateway();
 export const payoutProvider: PayoutProvider = new StubPayoutProvider();
-export const notifier: Notifier = process.env.RESEND_API_KEY ? new ResendNotifier() : new StubNotifier();
+const hasEmail = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
+export const notifier: Notifier = hasEmail ? new ResendNotifier() : new StubNotifier();
 export const storage: Storage = new LocalStorage();
 export const kycVerify: KycVerify = new StubKycVerify();
 export const randomSource: RandomSource = new StubRandomSource();
