@@ -1,5 +1,9 @@
--- v5.0: Add ON_HOLD to PayoutStatus enum
+-- v5.0: Extend enums
 ALTER TYPE "PayoutStatus" ADD VALUE IF NOT EXISTS 'ON_HOLD';
+ALTER TYPE "MemberRank" ADD VALUE IF NOT EXISTS 'SILVER';
+ALTER TYPE "MemberRank" ADD VALUE IF NOT EXISTS 'GOLD';
+ALTER TYPE "PayoutMode" ADD VALUE IF NOT EXISTS 'CASH';
+ALTER TYPE "PayoutMode" ADD VALUE IF NOT EXISTS 'ONLINE';
 
 -- v5.0: Restructure Payout table
 -- Add new columns

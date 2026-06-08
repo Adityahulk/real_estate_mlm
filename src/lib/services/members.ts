@@ -47,7 +47,7 @@ export async function createMemberApplication(input: RegisterInput) {
       whatsapp: input.whatsapp ?? input.mobile,
       email: input.email,
       passwordHash: await hashPassword(input.password),
-      sponsorId: sponsor?.id,
+      ...(sponsor?.id ? { sponsorId: sponsor.id } : {}),
       paymentPlan: input.paymentPlan ?? "INSTALLMENT",
     },
   });

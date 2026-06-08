@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { sendEmailOtp } from "@/lib/email";
 
 // ============================================================================
 // Integration adapters. Each is an interface with a stub implementation chosen
@@ -51,6 +52,33 @@ export interface Notifier {
 
 class StubNotifier implements Notifier {
   async send(input: { channel: NotifyChannel; to: string; title: string; message: string }) {
+    console.log(`[notify:${input.channel}] -> ${input.to} :: ${input.title} — ${input.message}`);
+    return true;
+  }
+}
+
+class ResendNotifier implements Notifier {
+  async send(input: { channel: NotifyChannel; to: string; title: string; message: string }) {
+    if (input.channel === "EMAIL") {
+      // Extract OTP from message if present (6-digit number)
+      const otpMatch = input.message.match(/\b(\d{6})\b/);
+      const otp = otpMatch?.[1];
+      const isReset = input.title.toLowerCase().includes("reset");
+      if (otp) {
+        await sendEmailOtp(input.to, otp, isReset ? "RESET" : "VERIFY");
+        return true;
+      }
+      // Fallback: send as plain email via Resend
+      const { Resend } = await import("resend");
+      const key = process.env.RESEND_API_KEY;
+      if (key) {
+        const r = new Resend(key);
+        const FROM = process.env.RESEND_FROM_EMAIL || "SSV <noreply@shreeshyamvilla.com>";
+        await r.emails.send({ from: FROM, to: input.to, subject: input.title, text: input.message });
+      }
+      return true;
+    }
+    // Non-email channels: log (stub) — swap for real SMS/WhatsApp later
     console.log(`[notify:${input.channel}] -> ${input.to} :: ${input.title} — ${input.message}`);
     return true;
   }
@@ -113,7 +141,7 @@ class StubRandomSource implements RandomSource {
 // ---------------------------- Wiring ----------------------------
 export const paymentGateway: PaymentGateway = new StubPaymentGateway();
 export const payoutProvider: PayoutProvider = new StubPayoutProvider();
-export const notifier: Notifier = new StubNotifier();
+export const notifier: Notifier = process.env.RESEND_API_KEY ? new ResendNotifier() : new StubNotifier();
 export const storage: Storage = new LocalStorage();
 export const kycVerify: KycVerify = new StubKycVerify();
 export const randomSource: RandomSource = new StubRandomSource();

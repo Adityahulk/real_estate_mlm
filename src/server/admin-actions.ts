@@ -11,7 +11,7 @@ import { conductDraw, markDrawPrizeClaimed } from "@/lib/services/draws";
 import { approveInsuranceClaim, processDueCashbacks, syncAllPairRewards, transferMemberPlot, updateEmiStatusesAndReminders } from "@/lib/services/operations";
 import { hashPassword } from "@/lib/password";
 import { storage } from "@/lib/integrations";
-import { formatINR } from "@/lib/money";
+// formatINR removed — processDuePayouts no longer returns paidNow amount
 import { Prisma } from "@prisma/client";
 
 function adminId(): string {
@@ -366,14 +366,11 @@ export async function processDuePayoutsAction(_prev: { error?: string; success?:
   try {
     const selectedIds = String(_formData.get("selectedIds") ?? "");
     const payoutIds = selectedIds ? selectedIds.split(",").filter(Boolean) : undefined;
-    const amount = Number(_formData.get("amountToPay") ?? 0);
-    const modeRaw = String(_formData.get("paymentMode") ?? "CASH");
-    const mode = modeRaw === "ONLINE" ? "ONLINE" : "CASH";
-    const result = await processDuePayouts({ processedById: uid, payoutIds, amount, mode });
+    const result = await processDuePayouts({ processedById: uid, payoutIds });
     revalidatePath("/admin/payouts");
     if (!result.processed && !result.failed) return { success: "No selected payouts are due today. Upcoming payouts will become available on their payout date." };
     if (result.failed) return { error: `Processed ${result.processed} payout(s); ${result.failed} payout(s) failed.` };
-    return { success: `Recorded ${formatINR(result.paidNow ?? amount)} across ${result.processed} payout line(s).` };
+    return { success: `Marked ${result.processed} payout line(s) as PAID.` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Payout processing failed" };
   }
