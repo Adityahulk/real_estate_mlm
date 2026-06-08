@@ -41,7 +41,7 @@ export default async function MemberLayout({ children }: { children: React.React
       </header>
       <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
         <aside className="hidden w-56 shrink-0 md:block">
-          <SideNav items={items} title="Menu" />
+          <SideNav items={items} title="Menu" matrix={{ label: "Matching Matrix", left: member.leftTeamCount, right: member.rightTeamCount, rank: member.rank }} />
         </aside>
         <main className="min-w-0 flex-1">
           <div className="mb-4 flex gap-2 overflow-x-auto md:hidden">

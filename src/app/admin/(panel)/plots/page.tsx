@@ -27,7 +27,7 @@ export default async function PlotsPage({ searchParams }: { searchParams?: { q?:
           <StatefulForm action={createPlotAction}>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Plot Number"><Input name="plotNumber" placeholder="P021" /></Field>
-              <Field label="Plot Price"><Input name="plotPrice" inputMode="numeric" defaultValue="300000" /></Field>
+              <Field label="Plot Price"><Input name="plotPrice" inputMode="numeric" defaultValue="300240" /></Field>
               <Field label="Development Charges"><Input name="developmentCharges" inputMode="numeric" defaultValue="25000" /></Field>
               <Field label="Documentation Charges"><Input name="documentationCharges" inputMode="numeric" defaultValue="15000" /></Field>
               <Field label="Location Block"><Input name="locationBlock" placeholder="Block A" /></Field>

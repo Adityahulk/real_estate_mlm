@@ -15,6 +15,11 @@ export default async function ReferralPage() {
     select: { memberId: true, fullName: true, joinDate: true, kycStatus: true },
     orderBy: { joinDate: "desc" },
   });
+  const applications = await prisma.memberApplication.findMany({
+    where: { sponsorId: me.id, status: "PENDING" },
+    select: { id: true, fullName: true, mobile: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <div className="space-y-4">
@@ -26,12 +31,26 @@ export default async function ReferralPage() {
           <div className="w-full">
             <p className="text-sm text-muted-foreground">Share this link. Anyone who joins through it becomes your direct referral and earns you Direct Sponsor income.</p>
             <div className="mt-3"><CopyField value={link} /></div>
+            <p className="mt-2 text-xs text-muted-foreground">Free registrations from this link are shown below, but they enter your referral count and the tree only after admin collects payment and approves them.</p>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>My Direct Referrals ({referrals.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Free Registrations Pending Payment ({applications.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          {applications.map((application) => (
+            <div key={application.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
+              <span>{application.id.slice(0, 8).toUpperCase()} · {application.fullName}</span>
+              <span className="text-muted-foreground">{application.createdAt.toISOString().slice(0, 10)}</span>
+            </div>
+          ))}
+          {applications.length === 0 && <div className="py-4 text-center text-muted-foreground">No free registrations pending payment.</div>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Paid Direct Referrals ({referrals.length})</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm">
           {referrals.map((r) => (
             <div key={r.memberId} className="flex items-center justify-between border-b py-1.5 last:border-0">

@@ -2,7 +2,7 @@ import { prisma } from "../db";
 import { hashPassword } from "../password";
 import { encryptPII, last4 } from "../crypto";
 import { findBfsPlacement, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
-import { isBronze } from "../engines/eligibility";
+import { visibleRank } from "../engines/eligibility";
 import { getNumberSetting, getBoolSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
 import { Prisma } from "@prisma/client";
@@ -22,13 +22,14 @@ export interface RegisterInput {
 }
 
 export async function createMemberApplication(input: RegisterInput) {
-  if (!input.sponsorMemberId) throw new Error("Referred By Plot Number is required");
-
-  const sponsor = await prisma.member.findUnique({
-    where: { memberId: input.sponsorMemberId },
-    select: { id: true, isActive: true },
-  });
-  if (!sponsor || !sponsor.isActive) throw new Error("Invalid referred by plot number");
+  let sponsor: { id: string; isActive: boolean } | null = null;
+  if (input.sponsorMemberId) {
+    sponsor = await prisma.member.findUnique({
+      where: { memberId: input.sponsorMemberId },
+      select: { id: true, isActive: true },
+    });
+    if (!sponsor || !sponsor.isActive) throw new Error("Invalid referred by plot number");
+  }
 
   const [existingMember, existingApplication] = await Promise.all([
     prisma.member.findFirst({ where: { OR: [{ mobile: input.mobile }, { email: input.email }] } }),
@@ -46,7 +47,7 @@ export async function createMemberApplication(input: RegisterInput) {
       whatsapp: input.whatsapp ?? input.mobile,
       email: input.email,
       passwordHash: await hashPassword(input.password),
-      sponsorId: sponsor.id,
+      sponsorId: sponsor?.id,
       paymentPlan: input.paymentPlan ?? "INSTALLMENT",
     },
   });
@@ -56,6 +57,7 @@ export async function approveMemberApplication(args: {
   applicationId: string;
   tokenAmount: number;
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "OFFLINE";
+  plotNumber: string;
   referenceNumber?: string;
 }) {
   const minRef = await getNumberSetting("bronze_min_referrals");
@@ -69,11 +71,9 @@ export async function approveMemberApplication(args: {
     });
     if (duplicate) throw new Error("A member with this mobile or email already exists");
 
-    const plot = await tx.plot.findFirst({
-      where: { status: "AVAILABLE" },
-      orderBy: { plotNumber: "asc" },
-    });
-    if (!plot) throw new Error("No plots available");
+    const plot = await tx.plot.findUnique({ where: { plotNumber: args.plotNumber.trim() } });
+    if (!plot) throw new Error("Selected plot number does not exist in inventory");
+    if (plot.status !== "AVAILABLE") throw new Error("Selected plot is not available");
 
     const nodes = await tx.member.findMany({
       where: { NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
@@ -119,22 +119,23 @@ export async function approveMemberApplication(args: {
         parentOf,
       });
       for (const inc of incs) {
-        await tx.member.update({
+        const ancestor = await tx.member.update({
           where: { id: inc.ancestorId },
           data:
             inc.side === "LEFT"
               ? { leftTeamCount: { increment: 1 } }
               : { rightTeamCount: { increment: 1 } },
         });
+        await syncMemberRankTx(tx, ancestor.id, minRef);
       }
     }
 
-    const sponsor = await tx.member.update({
-      where: { id: application.sponsorId },
-      data: { directReferralCount: { increment: 1 } },
-    });
-    if (isBronze(sponsor.directReferralCount, minRef) && sponsor.rank !== "BRONZE") {
-      await tx.member.update({ where: { id: sponsor.id }, data: { rank: "BRONZE" } });
+    if (application.sponsorId) {
+      const sponsor = await tx.member.update({
+        where: { id: application.sponsorId },
+        data: { directReferralCount: { increment: 1 } },
+      });
+      await syncMemberRankTx(tx, sponsor.id, minRef);
     }
 
     if (application.paymentPlan === "INSTALLMENT") {
@@ -163,10 +164,11 @@ export async function approveMemberApplication(args: {
 
 export async function registerMember(input: RegisterInput) {
   const allowMultiple = await getBoolSetting("allow_multiple_plots");
+  const minRef = await getNumberSetting("bronze_min_referrals");
 
   return prisma.$transaction(async (tx) => {
     // 1. Resolve optional referrer. Blank means no sponsor/referrer.
-    let sponsor: { id: string; directReferralCount: number; rank: "NONE" | "BRONZE" } | null = null;
+    let sponsor: { id: string; directReferralCount: number; rank: "NONE" | "BRONZE" | "SILVER" | "GOLD" } | null = null;
     if (input.sponsorMemberId) {
       const found = await tx.member.findUnique({ where: { memberId: input.sponsorMemberId } });
       if (!found) throw new Error("Invalid sponsor ID");
@@ -236,13 +238,14 @@ export async function registerMember(input: RegisterInput) {
         parentOf,
       });
       for (const inc of incs) {
-        await tx.member.update({
+        const ancestor = await tx.member.update({
           where: { id: inc.ancestorId },
           data:
             inc.side === "LEFT"
               ? { leftTeamCount: { increment: 1 } }
               : { rightTeamCount: { increment: 1 } },
         });
+        await syncMemberRankTx(tx, ancestor.id, minRef);
       }
     }
 
@@ -253,6 +256,20 @@ export async function registerMember(input: RegisterInput) {
 
     return member;
   });
+}
+
+async function syncMemberRankTx(tx: Prisma.TransactionClient, memberId: string, bronzeMinReferrals: number) {
+  const member = await tx.member.findUniqueOrThrow({
+    where: { id: memberId },
+    select: { directReferralCount: true, leftTeamCount: true, rightTeamCount: true, rank: true },
+  });
+  const rank = visibleRank({
+    directReferralCount: member.directReferralCount,
+    bronzeMinReferrals,
+    leftCount: member.leftTeamCount,
+    rightCount: member.rightTeamCount,
+  });
+  if (rank !== member.rank) await tx.member.update({ where: { id: memberId }, data: { rank } });
 }
 
 export async function createInstallmentScheduleTx(

@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { randomSource, notifier } from "../integrations";
 import { formatINR } from "../money";
 import { getNumberSetting } from "../settings";
+import { isBronze } from "../engines/eligibility";
 
 export interface DrawPrize {
   name: string;
@@ -41,8 +42,11 @@ export async function eligibleDrawMembers() {
   if (bookedPlots < triggerPlots) return [];
 
   const now = new Date();
-  const windowEnd = new Date(now.getFullYear(), now.getMonth(), 5, 23, 59, 59, 999);
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - 1, 25, 0, 0, 0, 0);
+  const startDay = await getNumberSetting("payment_window_start_day");
+  const endDay = await getNumberSetting("payment_window_end_day");
+  const drawMonthPaymentPeriod = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const windowStart = new Date(drawMonthPaymentPeriod.getFullYear(), drawMonthPaymentPeriod.getMonth(), startDay, 0, 0, 0, 0);
+  const windowEnd = new Date(drawMonthPaymentPeriod.getFullYear(), drawMonthPaymentPeriod.getMonth(), endDay, 23, 59, 59, 999);
 
   return prisma.member.findMany({
     where: {
@@ -55,6 +59,7 @@ export async function eligibleDrawMembers() {
           paymentDate: { gte: windowStart, lte: windowEnd },
         },
       },
+      drawWins: { none: {} },
     },
     include: {
       sponsor: { select: { id: true, memberId: true, fullName: true } },
@@ -82,6 +87,7 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
   }));
   const latest = await prisma.drawEvent.aggregate({ _max: { drawNumber: true } });
   const drawNumber = (latest._max.drawNumber ?? 0) + 1;
+  const bronzeMinReferrals = await getNumberSetting("bronze_min_referrals");
 
   const draw = await prisma.$transaction(async (tx) => {
     const event = await tx.drawEvent.create({
@@ -137,7 +143,7 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
         const sponsor = winner.member.sponsorId
           ? await tx.member.findUnique({ where: { id: winner.member.sponsorId } })
           : null;
-        if (sponsor?.rank === "BRONZE") {
+        if (sponsor && isBronze(sponsor.directReferralCount, bronzeMinReferrals)) {
           await tx.drawWinner.create({
             data: {
               drawEventId: event.id,

@@ -1,0 +1,8 @@
+ALTER TYPE "PayoutMode" ADD VALUE IF NOT EXISTS 'CASH';
+ALTER TYPE "PayoutMode" ADD VALUE IF NOT EXISTS 'ONLINE';
+
+ALTER TABLE "Payout" ADD COLUMN IF NOT EXISTS "paidAmount" DECIMAL(12,2) NOT NULL DEFAULT 0;
+
+UPDATE "Payout"
+SET "paidAmount" = "netAmount"
+WHERE "status" = 'PAID' AND "paidAmount" = 0;

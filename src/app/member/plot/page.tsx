@@ -21,6 +21,8 @@ export default async function MyPlotPage() {
         <CardHeader><CardTitle>Plot {p.plotNumber}</CardTitle></CardHeader>
         <CardContent className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
           <Row k="Size" v={p.plotSize} />
+          <Row k="Area" v={`${PROJECT.plotAreaSqFt} sq.ft.`} />
+          <Row k="Rate" v={`₹${PROJECT.ratePerSqFt} per sq.ft.`} />
           <Row k="Status" v={<Badge tone="brand">{p.status}</Badge>} />
           <Row k="Plot Price" v={formatINR(p.plotPrice)} />
           <Row k="Development Charges" v={formatINR(p.developmentCharges)} />
@@ -41,6 +43,8 @@ export default async function MyPlotPage() {
           <Row k="District" v={PROJECT.district} />
           <Row k="Road" v={PROJECT.road} />
           <Row k="Legal Status" v={<Badge tone="success">{PROJECT.legalStatus}</Badge>} />
+          <Row k="Project" v={PROJECT.siteName} />
+          <Row k="Group" v={PROJECT.groupName} />
         </CardContent>
       </Card>
 

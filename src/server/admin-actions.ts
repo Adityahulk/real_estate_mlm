@@ -11,6 +11,7 @@ import { conductDraw, markDrawPrizeClaimed } from "@/lib/services/draws";
 import { approveInsuranceClaim, processDueCashbacks, syncAllPairRewards, transferMemberPlot, updateEmiStatusesAndReminders } from "@/lib/services/operations";
 import { hashPassword } from "@/lib/password";
 import { storage } from "@/lib/integrations";
+import { formatINR } from "@/lib/money";
 import { Prisma } from "@prisma/client";
 
 function adminId(): string {
@@ -68,6 +69,7 @@ const approveApplicationSchema = z.object({
   applicationId: z.string().min(1),
   tokenAmount: z.coerce.number().positive(),
   paymentMode: z.enum(["CASH", "UPI", "BANK_TRANSFER", "OFFLINE"]),
+  plotNumber: z.string().trim().min(1, "Enter customer selected plot number"),
   referenceNumber: z.string().optional(),
 });
 
@@ -91,7 +93,7 @@ export async function approveApplicationAction(_prev: { error?: string; success?
     revalidatePath("/admin");
     revalidatePath("/admin/members");
     revalidatePath("/admin/plots");
-    return { success: `Approved and assigned plot ${member.memberId}` };
+    return { success: `Approved, collected booking amount, and activated plot ${member.memberId}` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Approval failed" };
   }
@@ -198,7 +200,7 @@ export async function bulkCreatePlotsAction(_prev: { error?: string; success?: s
   );
   if (!numbers.length) return { error: "Enter at least one plot number" };
 
-  const defaultPrice = new Prisma.Decimal("300000");
+  const defaultPrice = new Prisma.Decimal("300240");
   const existing = await prisma.plot.findMany({
     where: { plotNumber: { in: numbers } },
     select: { plotNumber: true },
@@ -364,11 +366,14 @@ export async function processDuePayoutsAction(_prev: { error?: string; success?:
   try {
     const selectedIds = String(_formData.get("selectedIds") ?? "");
     const payoutIds = selectedIds ? selectedIds.split(",").filter(Boolean) : undefined;
-    const result = await processDuePayouts(uid, payoutIds);
+    const amount = Number(_formData.get("amountToPay") ?? 0);
+    const modeRaw = String(_formData.get("paymentMode") ?? "CASH");
+    const mode = modeRaw === "ONLINE" ? "ONLINE" : "CASH";
+    const result = await processDuePayouts({ processedById: uid, payoutIds, amount, mode });
     revalidatePath("/admin/payouts");
     if (!result.processed && !result.failed) return { success: "No selected payouts are due today. Upcoming payouts will become available on their payout date." };
     if (result.failed) return { error: `Processed ${result.processed} payout(s); ${result.failed} payout(s) failed.` };
-    return { success: `Successfully processed ${result.processed} due payout(s).` };
+    return { success: `Recorded ${formatINR(result.paidNow ?? amount)} across ${result.processed} payout line(s).` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Payout processing failed" };
   }

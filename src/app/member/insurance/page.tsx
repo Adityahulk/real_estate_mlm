@@ -15,10 +15,12 @@ export default async function InsurancePage() {
           <StatefulForm action={submitInsuranceClaimAction}>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Death Date"><Input name="deathDate" type="date" /></Field>
-              <Field label="Death Type"><Input name="deathType" defaultValue="Accidental" /></Field>
+              <Field label="Death Type"><Input name="deathType" defaultValue="Accidental" placeholder="Accidental or Normal" /></Field>
               <Field label="Death Certificate"><Input name="deathCertificate" type="file" accept="image/*,.pdf" /></Field>
             </div>
-            <p className="mb-3 text-xs text-muted-foreground">Insurance requires at least 5 paid months, accidental death, and completed nominee KYC.</p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Insurance applies for accidental or normal death after at least 5 paid months. Nominee receives plot documentation/registration; Aadhaar, documentation, and other charges are separate.
+            </p>
             <SubmitButton>Submit Claim</SubmitButton>
           </StatefulForm>
         </CardContent>

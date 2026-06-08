@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { processDuePayoutsAction } from "@/server/admin-actions";
@@ -15,10 +15,12 @@ type PayoutRecord = {
   gross: number;
   adminCharge: number;
   net: number;
-  utr: string | null;
+  paid: number;
+  paymentMode: "BANK_TRANSFER" | "UPI" | "CASH" | "ONLINE";
   status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "ON_HOLD";
   onHoldReason: string | null;
   isDue: boolean;
+  purposes: { type: string; source: string }[];
 };
 
 const tone = { PAID: "success", PENDING: "warning", ON_HOLD: "danger", FAILED: "danger", PROCESSING: "warning" } as const;
@@ -34,6 +36,7 @@ function ProcessSelectedButton({ count }: { count: number }) {
 
 export function PayoutManager({ records }: { records: PayoutRecord[] }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [amount, setAmount] = useState("0.00");
   const [state, action] = useFormState(processDuePayoutsAction, undefined);
   const groups = useMemo(() => {
     const grouped = new Map<string, PayoutRecord[]>();
@@ -43,6 +46,16 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
     }
     return Array.from(grouped.values());
   }, [records]);
+  const selectedPendingTotal = useMemo(
+    () => records
+      .filter((record) => selected.includes(record.id))
+      .reduce((sum, record) => sum + Math.max(0, record.net - record.paid), 0),
+    [records, selected]
+  );
+
+  useEffect(() => {
+    setAmount(selectedPendingTotal.toFixed(2));
+  }, [selectedPendingTotal]);
 
   function toggle(ids: string[], checked: boolean) {
     setSelected((current) => checked
@@ -53,11 +66,30 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="selectedIds" value={selected.join(",")} />
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 p-3">
+      <div className="grid gap-3 rounded-xl border bg-muted/40 p-3 lg:grid-cols-[1fr_180px_170px_auto]">
         <div>
           <div className="text-sm font-medium">{selected.length} payout line(s) selected</div>
-          <div className="text-xs text-muted-foreground">Select a due member group, then process its combined payout.</div>
+          <div className="text-xs text-muted-foreground">
+            Selected pending total: <b>{formatINR(selectedPendingTotal)}</b>. Enter how much admin is paying right now.
+          </div>
         </div>
+        <label className="text-xs font-medium">
+          Paying Now
+          <input
+            name="amountToPay"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            inputMode="decimal"
+            className="mt-1 h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:border-brand"
+          />
+        </label>
+        <label className="text-xs font-medium">
+          Mode
+          <select name="paymentMode" defaultValue="CASH" className="mt-1 h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:border-brand">
+            <option value="CASH">Cash</option>
+            <option value="ONLINE">Online</option>
+          </select>
+        </label>
         <ProcessSelectedButton count={selected.length} />
       </div>
       {state?.error && <div className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{state.error}</div>}
@@ -65,12 +97,12 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
 
       {groups.map((group) => {
         const first = group[0];
-        const eligibleIds = group.filter((p) => p.status === "PENDING" && p.isDue).map((p) => p.id);
+        const eligibleIds = group.filter((p) => p.status === "PENDING" && p.isDue && p.net > p.paid).map((p) => p.id);
         const allSelected = eligibleIds.length > 0 && eligibleIds.every((id) => selected.includes(id));
         const total = group.reduce((sum, p) => sum + p.net, 0);
-        const paid = group.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.net, 0);
-        const pending = group.filter((p) => p.status === "PENDING" || p.status === "PROCESSING").reduce((sum, p) => sum + p.net, 0);
-        const held = group.filter((p) => p.status === "ON_HOLD").reduce((sum, p) => sum + p.net, 0);
+        const paid = group.reduce((sum, p) => sum + p.paid, 0);
+        const pending = group.reduce((sum, p) => sum + Math.max(0, p.net - p.paid), 0);
+        const held = group.filter((p) => p.status === "ON_HOLD").reduce((sum, p) => sum + Math.max(0, p.net - p.paid), 0);
 
         return (
           <details key={`${first.date}:${first.memberId}`} className="group rounded-xl border bg-card">
@@ -102,12 +134,21 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
             <div className="space-y-2 border-t p-3">
               {group.map((p, index) => (
                 <div key={p.id} className="grid gap-2 rounded-lg bg-muted/50 p-3 text-xs sm:grid-cols-6">
-                  <span><span className="text-muted-foreground">Line</span><br />#{index + 1}</span>
+                  <span className="sm:col-span-2">
+                    <span className="text-muted-foreground">For</span><br />
+                    {p.purposes.length
+                      ? p.purposes.map((purpose) => `${purpose.type} from ${purpose.source}`).join(", ")
+                      : `Commission payout line #${index + 1}`}
+                  </span>
                   <span><span className="text-muted-foreground">Gross</span><br />{formatINR(p.gross)}</span>
                   <span><span className="text-muted-foreground">Admin 5%</span><br />{formatINR(p.adminCharge)}</span>
                   <span><span className="text-muted-foreground">Net</span><br /><strong>{formatINR(p.net)}</strong></span>
-                  <span className="break-all"><span className="text-muted-foreground">UTR</span><br />{p.utr ?? "-"}</span>
-                  <span><Badge tone={tone[p.status]}>{p.status.replace("_", " ")}</Badge>{p.onHoldReason && <div className="mt-1 text-danger">{p.onHoldReason}</div>}</span>
+                  <span><span className="text-muted-foreground">Paid / Pending</span><br /><b>{formatINR(p.paid)}</b> / {formatINR(Math.max(0, p.net - p.paid))}</span>
+                  <span>
+                    <Badge tone={tone[p.status]}>{p.status.replace("_", " ")}</Badge>
+                    {p.paid > 0 && <div className="mt-1 text-muted-foreground">Mode: {p.paymentMode.replace("_", " ")}</div>}
+                    {p.onHoldReason && <div className="mt-1 text-danger">{p.onHoldReason}</div>}
+                  </span>
                 </div>
               ))}
             </div>

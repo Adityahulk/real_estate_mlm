@@ -37,6 +37,8 @@ enum TreeSide {
 enum MemberRank {
   NONE
   BRONZE
+  SILVER
+  GOLD
 }
 
 enum PaymentPlan {
@@ -107,6 +109,8 @@ enum PayoutStatus {
 enum PayoutMode {
   BANK_TRANSFER
   UPI
+  CASH
+  ONLINE
 }
 
 enum DrawStatus {
@@ -285,8 +289,8 @@ model MemberApplication {
   whatsapp      String?
   email         String                  @unique
   passwordHash  String
-  sponsorId     String
-  sponsor       Member                  @relation("ApplicationSponsor", fields: [sponsorId], references: [id])
+  sponsorId     String?
+  sponsor       Member?                 @relation("ApplicationSponsor", fields: [sponsorId], references: [id])
   paymentPlan   PaymentPlan             @default(INSTALLMENT)
   status        MemberApplicationStatus @default(PENDING)
   createdAt     DateTime                @default(now())
@@ -441,6 +445,7 @@ model Payout {
   grossAmount   Decimal      @db.Decimal(12, 2)
   adminCharge   Decimal      @default(0) @db.Decimal(12, 2)
   netAmount     Decimal      @db.Decimal(12, 2)
+  paidAmount    Decimal      @default(0) @db.Decimal(12, 2)
   payoutDate    DateTime // scheduled for next day
   status        PayoutStatus @default(PENDING)
   onHoldReason  String?

@@ -5,12 +5,22 @@ type Node = Awaited<ReturnType<typeof downlineTree>>;
 
 function TreeNode({ node }: { node: Node }) {
   if (!node) return <div className="rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">empty</div>;
-  const color = node.rank === "BRONZE" ? "border-brand bg-brand/10" : node.isActive ? "border-success/40 bg-success/5" : "border-border";
+  const color =
+    node.rank === "GOLD"
+      ? "border-warning bg-warning/10"
+      : node.rank === "SILVER"
+        ? "border-success bg-success/10"
+        : node.rank === "BRONZE"
+          ? "border-brand bg-brand/10"
+          : node.isActive
+            ? "border-success/40 bg-success/5"
+            : "border-border";
   return (
     <div className="flex flex-col items-center">
       <div className={`rounded-xl border px-3 py-2 text-center ${color}`}>
         <div className="text-sm font-semibold">{node.memberId}</div>
         <div className="max-w-[8rem] truncate text-xs text-muted-foreground">{node.fullName}</div>
+        {node.rank !== "NONE" && <div className="text-[10px] font-semibold text-brand">{node.rank}</div>}
         <div className="text-[10px] text-muted-foreground">L {node.leftTeamCount} · R {node.rightTeamCount}</div>
       </div>
       {(node.left || node.right) && (

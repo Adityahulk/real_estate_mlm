@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { generateCashbackSchedule } from "../engines/emi";
-import { unlockedPairRewards } from "../engines/eligibility";
+import { unlockedPairRewards, visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 
 export async function createCashbackCreditsTx(
@@ -86,6 +86,16 @@ export async function syncPairRewards(memberId: string) {
       update: {},
     });
   }
+  const bronzeMinReferrals = await getNumberSetting("bronze_min_referrals");
+  const rank = visibleRank({
+    directReferralCount: member.directReferralCount,
+    bronzeMinReferrals,
+    leftCount: member.leftTeamCount,
+    rightCount: member.rightTeamCount,
+  });
+  if (rank !== member.rank) {
+    await prisma.member.update({ where: { id: member.id }, data: { rank } });
+  }
   return rewards;
 }
 
@@ -136,7 +146,10 @@ export async function approveInsuranceClaim(claimId: string, reviewedById: strin
   return prisma.$transaction(async (tx) => {
     const claim = await tx.insuranceClaim.findUniqueOrThrow({ where: { id: claimId } });
     const minMonths = await getNumberSetting("insurance_min_months");
-    if (claim.deathType.toLowerCase() !== "accidental") throw new Error("Only accidental death is eligible");
+    const deathType = claim.deathType.toLowerCase();
+    if (!deathType.includes("accidental") && !deathType.includes("normal")) {
+      throw new Error("Only accidental or normal death is eligible");
+    }
     if (claim.monthsPaid < minMonths) throw new Error(`At least ${minMonths} paid months are required`);
     await tx.insuranceClaim.update({
       where: { id: claim.id },

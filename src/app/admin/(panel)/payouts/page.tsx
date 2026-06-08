@@ -15,10 +15,15 @@ export default async function PayoutsPage() {
     gross: p.grossAmount.toNumber(),
     adminCharge: p.adminCharge.toNumber(),
     net: p.netAmount.toNumber(),
-    utr: p.utrNumber,
+    paid: p.paidAmount.toNumber(),
+    paymentMode: p.paymentMode,
     status: p.status,
     onHoldReason: p.onHoldReason,
     isDue: p.payoutDate <= dueBy,
+    purposes: p.commissions.map((c) => ({
+      type: c.incomeType.replace(/_/g, " "),
+      source: `${c.sourceMember.memberId} · ${c.sourceMember.fullName}`,
+    })),
   }));
 
   return (
@@ -29,6 +34,7 @@ export default async function PayoutsPage() {
           <p className="mb-3 text-sm text-muted-foreground">
             Commission is paid out the next day after each verified payment, minus a 5% admin charge.
             Payouts for members whose KYC isn&apos;t approved are held automatically and released when KYC is approved.
+            Transfers are normally processed between the 5th and 10th, and admin can record any payout amount.
           </p>
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Pending (due)" value={formatINR(s.pending.net)} sub={`${s.pending.count} payout(s)`} />

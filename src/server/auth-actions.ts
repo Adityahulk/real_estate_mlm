@@ -17,7 +17,7 @@ const registerSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/, "Mobile must be 10 digits"),
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  sponsorMemberId: z.string().min(1, "Referred By Plot Number is required"),
+  sponsorMemberId: z.string().optional(),
   paymentPlan: z.enum(["INSTALLMENT", "CASHBACK"]).default("INSTALLMENT"),
 });
 
@@ -27,9 +27,12 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
     return { error: parsed.error.issues[0].message };
   }
   try {
-    await createMemberApplication(parsed.data);
+    const application = await createMemberApplication({
+      ...parsed.data,
+      sponsorMemberId: parsed.data.sponsorMemberId?.trim() || undefined,
+    });
     return {
-      success: "Application submitted. Admin will collect the token amount, approve it, and assign your plot number.",
+      success: `Your application is submitted with Application ID: ${application.id.slice(0, 8).toUpperCase()}, contact the admin for approval`,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Registration failed" };
@@ -37,38 +40,39 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
 }
 
 const loginSchema = z.object({
-  mobile: z.string().min(1, "Enter mobile"),
+  loginId: z.string().min(1, "Enter mobile number or email"),
   password: z.string().min(1, "Enter password"),
 });
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const member = await prisma.member.findUnique({ where: { mobile: parsed.data.mobile } });
+  const loginId = parsed.data.loginId.trim().toLowerCase();
+
+  if (loginId.includes("@")) {
+    const admin = await prisma.user.findUnique({ where: { email: loginId } });
+    if (admin && admin.isActive && await verifyPassword(parsed.data.password, admin.passwordHash)) {
+      setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
+      redirect("/admin");
+    }
+  }
+
+  const member = await prisma.member.findFirst({
+    where: {
+      OR: [
+        { mobile: loginId },
+        { email: loginId },
+      ],
+    },
+  });
   if (!member || !(await verifyPassword(parsed.data.password, member.passwordHash))) {
-    return { error: "Invalid mobile or password" };
+    return { error: "Invalid mobile/email or password" };
   }
   if (!member.isActive) {
     return { error: "Your account is pending admin approval after booking payment verification." };
   }
   setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));
   redirect("/member");
-}
-
-const adminLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-export async function adminLoginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = adminLoginSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Enter email and password" };
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (!user || !user.isActive || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
-    return { error: "Invalid credentials" };
-  }
-  setAdminCookie(signAdmin({ sub: user.id, role: user.role }));
-  redirect("/admin");
 }
 
 export async function logoutMemberAction() {
@@ -78,11 +82,12 @@ export async function logoutMemberAction() {
 
 export async function logoutAdminAction() {
   clearAdminCookie();
-  redirect("/admin/login");
+  redirect("/login");
 }
 
 export async function requestPasswordResetAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
   const member = await prisma.member.findUnique({ where: { email } });
   if (!member) return { error: "No member account found for this email" };
   const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -95,13 +100,17 @@ export async function requestPasswordResetAction(_prev: ActionState, formData: F
     },
   });
   await notifier.send({ channel: "EMAIL", to: email, title: "Password reset code", message: `Your reset code is ${code}. It expires in 15 minutes.` });
-  return { success: "Reset code sent to your email" };
+  if ((process.env.INTEGRATIONS_MODE || "stub") === "stub") {
+    return { success: `OTP generated for testing: ${code}. Verify it below to reset your password.` };
+  }
+  return { success: "OTP sent to your registered email. Verify it below to reset your password." };
 }
 
 export async function resetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const code = String(formData.get("code") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
   if (password.length < 6) return { error: "Password must be at least 6 characters" };
   const otp = await prisma.otpCode.findFirst({
     where: { target: email, purpose: "RESET", consumed: false, expiresAt: { gt: new Date() } },

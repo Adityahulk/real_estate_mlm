@@ -9,7 +9,7 @@ import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
 
 export default async function AdminOverview() {
-  const [o, applications, bookingAmount] = await Promise.all([
+  const [o, applications, bookingAmount, availablePlots] = await Promise.all([
     adminOverview(),
     prisma.memberApplication.findMany({
       where: { status: "PENDING" },
@@ -17,6 +17,11 @@ export default async function AdminOverview() {
       orderBy: { createdAt: "asc" },
     }),
     getNumberSetting("booking_amount"),
+    prisma.plot.findMany({
+      where: { status: "AVAILABLE" },
+      select: { plotNumber: true },
+      orderBy: { plotNumber: "asc" },
+    }),
   ]);
 
   return (
@@ -33,7 +38,7 @@ export default async function AdminOverview() {
         <CardHeader>
           <CardTitle>New Member Approvals ({applications.length})</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Collect the token amount and approve the application. The next available plot number is assigned automatically.
+            Free registrations stay outside the structure. After collecting the token amount, enter the customer&apos;s selected available plot number to activate the member and place them in the common tree.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -42,11 +47,15 @@ export default async function AdminOverview() {
               <div className="mb-3 grid gap-1 text-sm sm:grid-cols-3">
                 <div><span className="text-muted-foreground">Applicant:</span> <b>{application.fullName}</b></div>
                 <div><span className="text-muted-foreground">Mobile:</span> <b>{application.mobile}</b></div>
-                <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor.memberId} · {application.sponsor.fullName}</b></div>
+                <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor ? `${application.sponsor.memberId} · ${application.sponsor.fullName}` : "No referrer"}</b></div>
+                <div><span className="text-muted-foreground">Free Application ID:</span> <b>{application.id.slice(0, 8).toUpperCase()}</b></div>
               </div>
               <StatefulForm action={approveApplicationAction}>
                 <input type="hidden" name="applicationId" value={application.id} />
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-5">
+                  <Field label="Customer Plot Number">
+                    <Input name="plotNumber" list="available-plot-numbers" placeholder="e.g. P001" />
+                  </Field>
                   <Field label="Token Amount">
                     <Input name="tokenAmount" defaultValue={bookingAmount} inputMode="numeric" />
                   </Field>
@@ -71,6 +80,9 @@ export default async function AdminOverview() {
           {applications.length === 0 && (
             <div className="py-3 text-center text-sm text-muted-foreground">No pending member applications.</div>
           )}
+          <datalist id="available-plot-numbers">
+            {availablePlots.map((plot) => <option key={plot.plotNumber} value={plot.plotNumber} />)}
+          </datalist>
         </CardContent>
       </Card>
 

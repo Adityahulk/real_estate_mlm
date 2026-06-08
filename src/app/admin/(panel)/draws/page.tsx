@@ -58,7 +58,7 @@ export default async function AdminDrawsPage() {
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">
-                Eligible members must be active, KYC-approved, and paid between the previous month&apos;s 25th and current month&apos;s 5th.
+                Eligible members must be active, KYC-approved, and paid during the monthly payment window: 1st to 25th. Draw is conducted between the 5th and 10th. Plot-prize documentation happens in the final month, conditions apply.
               </p>
               <SubmitButton>Conduct 5-Prize Draw</SubmitButton>
             </div>

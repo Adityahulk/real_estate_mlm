@@ -6,7 +6,7 @@ import { AuthShell } from "@/components/auth-shell";
 
 export default function RegisterPage({ searchParams }: { searchParams: { ref?: string } }) {
   return (
-    <AuthShell wide eyebrow="Member Application" title="Own Your Plot" description="Submit your application. After token collection and admin approval, the next available plot number becomes your Member ID.">
+    <AuthShell wide eyebrow="Free Member Application" title="Register Free" description="Create a free application first. Your ID appears in the structure only after admin collects the token amount and assigns your chosen plot.">
         <StatefulForm action={registerAction}>
           <Field label="Full Name (as per Aadhaar)">
             <Input name="fullName" placeholder="Full name" />
@@ -26,8 +26,8 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
             <Input name="password" type="password" placeholder="At least 6 characters" />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Referred By Plot Number">
-              <Input name="sponsorMemberId" defaultValue={searchParams.ref ?? ""} placeholder="e.g. P001" required />
+            <Field label="Referred By Plot Number (optional)">
+              <Input name="sponsorMemberId" defaultValue={searchParams.ref ?? ""} placeholder="Blank if not referred" />
             </Field>
             <Field label="Payment Plan">
               <Select name="paymentPlan" defaultValue="INSTALLMENT">

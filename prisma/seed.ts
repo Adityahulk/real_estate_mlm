@@ -77,7 +77,7 @@ async function main() {
         data: {
           plotNumber: `P${n}`,
           plotSize: "12x36",
-          plotPrice: new Prisma.Decimal("300000"),
+          plotPrice: new Prisma.Decimal("300240"),
           developmentCharges: new Prisma.Decimal("25000"),
           documentationCharges: new Prisma.Decimal("15000"),
           locationBlock: `Block ${String.fromCharCode(65 + ((i - 1) % 3))}`,

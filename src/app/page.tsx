@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgeIndianRupee, Building2, Car, Gift, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeIndianRupee, Building2, Car, Gift, Medal, MapPin, ShieldCheck, Split, type LucideIcon } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui";
 import { PROJECT } from "@/lib/project";
@@ -20,7 +20,7 @@ export default function Home() {
         <div className="mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-lg border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
           <Brand />
           <div className="flex items-center gap-2">
-            <Link href="/login"><Button variant="ghost" size="sm">Member Login</Button></Link>
+            <Link href="/login"><Button variant="ghost" size="sm">Login</Button></Link>
             <Link href="/register"><Button size="sm">Join Project</Button></Link>
           </div>
         </div>
@@ -34,11 +34,11 @@ export default function Home() {
             <div className="max-w-xl border-l-4 border-brand pl-4">
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">Panoli Industrial · Kosamba</div>
               <h1 className="mt-2 text-3xl font-black uppercase sm:text-5xl">Building Trust, Creating Futures</h1>
-              <p className="mt-3 text-sm leading-relaxed text-white/80 sm:text-base">Own a premium 432 sq.ft. residential plot with flexible payments, transparent income, rewards, and family protection.</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/80 sm:text-base">Own a premium {PROJECT.plotAreaSqFt} sq.ft. plot at {PROJECT.siteName} with flexible payments, transparent income, rewards, and family protection.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/register"><Button size="lg">Become a Member <ArrowRight className="h-4 w-4" /></Button></Link>
-              <Link href="/login"><Button size="lg" variant="outline" className="border-white bg-white/10 text-white hover:bg-white/20">Member Login</Button></Link>
+              <Link href="/login"><Button size="lg" variant="outline" className="border-white bg-white/10 text-white hover:bg-white/20">Login</Button></Link>
             </div>
           </div>
         </div>
@@ -46,10 +46,10 @@ export default function Home() {
 
       <section className="bg-foreground py-5 text-white">
         <div className="mx-auto grid max-w-6xl gap-4 px-6 text-center sm:grid-cols-4">
-          <Fact value="432 Sq.Ft." label="Plot Size" />
-          <Fact value="₹3,00,000" label="Plot Value" />
+          <Fact value={`${PROJECT.plotAreaSqFt} Sq.Ft.`} label="Plot Size" />
+          <Fact value={`₹${PROJECT.ratePerSqFt}`} label="Rate / Sq.Ft." />
+          <Fact value="₹3,00,240" label="Plot Value" />
           <Fact value="₹10,000" label="Monthly EMI" />
-          <Fact value="30 Months" label="Easy Installments" />
         </div>
       </section>
 
@@ -70,16 +70,25 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6">
           <SectionTitle eyebrow="Flexible Options" title="Choose Your Payment Plan" text="Easy process, transparent terms, and a secure investment." />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["30 monthly installments", "Total plot value ₹3,00,000", "Online and offline payment"]} />
-            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,000" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Plot benefit received separately"]} />
+            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["Payment window: 1st to 25th", "Total plot value ₹3,00,240", "Online and offline payment"]} />
+            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,240" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Minimum payout transfer ₹500"]} />
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-6 py-16 lg:grid-cols-3">
-        <Feature icon={Gift} eyebrow="Lucky Draw" title="Five Prizes Every Draw" text="Win a 12×36 plot, mixer grinder, iron press, pressure cooker, or tea cup set." image="/proposal/draw.png" />
-        <Feature icon={Car} eyebrow="Team Rewards" title="Grow and Unlock Rewards" text="Build balanced teams to unlock Honda Activa and four-wheeler achievements." image="/proposal/bronze.png" />
-        <Feature icon={ShieldCheck} eyebrow="Family Security" title="Insurance Protection" text="After five regular EMIs, accidental death protection secures the plot for the nominee." image="/proposal/insurance.png" />
+      <section className="mx-auto max-w-6xl px-6 py-16">
+        <SectionTitle eyebrow="Two-Leg Team Plan" title="Automatic Left & Right Placement" text="Every member has two legs. After two direct sponsors, later IDs are automatically placed wherever space is available, left to right and top to bottom, through the 7-level plan." />
+        <div className="grid gap-5 lg:grid-cols-3">
+          <Rule icon={Split} title="Common Team Placement" text="IDs are placed left-to-right, top-to-bottom. Earlier and later IDs are added together for achievements." />
+          <Rule icon={Medal} title="Silver Achievement" text="25 Left + 25 Right unlocks Silver Rank and Honda Activa." />
+          <Rule icon={Car} title="Gold Achievement" text="150 Left + 150 Right unlocks Gold Rank and Four Wheeler." />
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-16 lg:grid-cols-3">
+        <Feature icon={Gift} eyebrow="Lucky Draw" title="Five Prizes Every Draw" text="Draw runs between the 5th and 10th. Plot prize registration/documentation happens in the final month, conditions apply." image="/proposal/draw.png" />
+        <Feature icon={Medal} eyebrow="Bronze Rank" title="11 Direct Sponsors" text="If a Bronze-qualified member's direct referral wins a draw prize, the Bronze member receives the same prize. Without Bronze qualification, no bonus prize is given." image="/proposal/bronze.png" />
+        <Feature icon={ShieldCheck} eyebrow="Family Security" title="Insurance Protection" text="After five paid EMIs, accidental or normal death protection secures the plot for the nominee. Documentation/Aadhaar charges are separate." image="/proposal/insurance.png" />
       </section>
 
       <section className="bg-foreground py-14 text-white">
@@ -87,6 +96,7 @@ export default function Home() {
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">Invest Today · Build Tomorrow</div>
             <h2 className="mt-2 text-3xl font-black uppercase">Secure Your Future With Land</h2>
+            <p className="mt-2 max-w-2xl text-sm text-white/70">Rules, charges, fair usage, and system conditions may change as per project policy.</p>
           </div>
           <Link href="/register"><Button size="lg">Start Your Application <ArrowRight className="h-4 w-4" /></Button></Link>
         </div>
@@ -97,7 +107,7 @@ export default function Home() {
           <div><Brand /><p className="mt-2 text-xs text-muted-foreground">{PROJECT.office}</p></div>
           <div className="space-y-1 text-muted-foreground">
             {PROJECT.contacts.map((c) => <div key={c.phone}>{c.name} · <strong>{c.phone}</strong></div>)}
-            <Link href="/admin/login" className="inline-block pt-2 text-brand">Admin Login</Link>
+            <Link href="/login" className="inline-block pt-2 text-brand">Admin Login</Link>
           </div>
         </div>
       </footer>
@@ -117,6 +127,10 @@ function Plan({ label, title, amount, suffix, lines }: { label: string; title: s
   return <div className="proposal-panel rounded-lg border-2 border-brand p-6"><span className="rounded-md bg-brand px-3 py-1 text-xs font-bold uppercase text-white">{label}</span><h3 className="mt-5 text-xl font-black uppercase">{title}</h3><div className="mt-4 text-4xl font-black">{amount}</div><div className="text-sm font-bold uppercase text-brand">{suffix}</div><div className="mt-5 border-t pt-4">{lines.map((line) => <div key={line} className="border-b py-2 text-sm font-medium last:border-0">{line}</div>)}</div></div>;
 }
 
-function Feature({ icon: Icon, eyebrow, title, text, image }: { icon: typeof Gift; eyebrow: string; title: string; text: string; image: string }) {
+function Rule({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+  return <div className="proposal-panel rounded-lg p-5"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white"><Icon className="h-5 w-5" /></div><h3 className="font-black uppercase">{title}</h3><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>;
+}
+
+function Feature({ icon: Icon, eyebrow, title, text, image }: { icon: LucideIcon; eyebrow: string; title: string; text: string; image: string }) {
   return <article className="proposal-panel rounded-lg"><div className="relative aspect-[16/9] overflow-hidden"><Image src={image} alt={title} fill className="object-cover" /></div><div className="p-5"><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand"><Icon className="h-4 w-4" />{eyebrow}</div><h3 className="mt-2 text-lg font-black uppercase">{title}</h3><p className="mt-2 text-sm text-muted-foreground">{text}</p></div></article>;
 }

@@ -3,12 +3,15 @@ import { currentMember, memberDashboard } from "@/lib/services/queries";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
+import { eligibleDrawMembers } from "@/lib/services/draws";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
+const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "warning" } as const;
 
 export default async function MemberDashboard() {
   const me = await currentMember();
-  const d = await memberDashboard(me.id);
+  const [d, eligiblePool] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers()]);
+  const isDrawEligibleNow = eligiblePool.some((member) => member.id === me.id);
 
   return (
     <div className="space-y-5">
@@ -43,7 +46,7 @@ export default async function MemberDashboard() {
           value={d.nextEmi ? formatINR(d.nextEmi.amountDue) : "—"}
           sub={d.nextEmi ? `Pay by ${d.nextEmi.payByDate.toISOString().slice(0, 10)}` : "All cleared"}
         />
-        <Stat label="Direct Referrals" value={d.rank.directReferrals} sub={`Bronze at ${d.rank.bronzeTarget}`} />
+        <Stat label="Direct Referrals" value={d.rank.directReferrals} sub={`Bronze bonus at ${d.rank.bronzeTarget}`} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -62,10 +65,10 @@ export default async function MemberDashboard() {
           <CardHeader><CardTitle>Status & Rewards</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
             <Row k="KYC" v={<Badge tone={kycTone[me.kycStatus]}>{me.kycStatus.replace("_", " ")}</Badge>} />
-            <Row k="Rank" v={<Badge tone={me.rank === "BRONZE" ? "brand" : "neutral"}>{me.rank}</Badge>} />
-            <Row k="Draw Eligible" v={<Badge tone={me.isDrawEligible ? "success" : "neutral"}>{me.isDrawEligible ? "Yes" : "No"}</Badge>} />
+            <Row k="Rank" v={<Badge tone={rankTone[me.rank]}>{me.rank}</Badge>} />
+            <Row k="Draw Eligible" v={<Badge tone={isDrawEligibleNow ? "success" : "neutral"}>{isDrawEligibleNow ? "Yes" : "No"}</Badge>} />
             <Row k="Team (L / R)" v={`${d.pair.left} / ${d.pair.right}`} />
-            <Row k="Pair Rewards" v={d.pair.unlocked.length ? d.pair.unlocked.join(", ") : "Activa at 25+25"} />
+            <Row k="Pair Rewards" v={d.pair.unlocked.length ? d.pair.unlocked.join(", ") : "Silver at 25+25"} />
           </CardContent>
         </Card>
       </div>

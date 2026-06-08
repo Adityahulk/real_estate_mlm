@@ -5,6 +5,7 @@ import { SideNav } from "@/components/nav";
 import { logoutAdminAction } from "@/server/auth-actions";
 import { Button } from "@/components/ui";
 import { Brand } from "@/components/brand";
+import { prisma } from "@/lib/db";
 
 const items = [
   { href: "/admin", label: "Overview" },
@@ -13,15 +14,21 @@ const items = [
   { href: "/admin/plots", label: "Plots" },
   { href: "/admin/payments", label: "Payments" },
   { href: "/admin/payouts", label: "Payouts" },
+  { href: "/admin/business-plan", label: "Business Plan" },
   { href: "/admin/draws", label: "Lucky Draw" },
   { href: "/admin/operations", label: "Operations" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/settings", label: "Settings" },
 ];
 
-export default function AdminPanelLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const session = getAdminSession();
-  if (!session) redirect("/admin/login");
+  if (!session) redirect("/login");
+  const root = await prisma.member.findFirst({
+    where: { NOT: { memberId: "COMPANY" } },
+    select: { leftTeamCount: true, rightTeamCount: true, rank: true },
+    orderBy: { joinDate: "asc" },
+  });
 
   return (
     <div className="min-h-screen">
@@ -39,7 +46,11 @@ export default function AdminPanelLayout({ children }: { children: React.ReactNo
       </header>
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
         <aside className="hidden w-52 shrink-0 md:block">
-          <SideNav items={items} title="Admin" />
+          <SideNav
+            items={items}
+            title="Admin"
+            matrix={{ label: "Root Matrix", left: root?.leftTeamCount ?? 0, right: root?.rightTeamCount ?? 0, rank: root?.rank ?? "NONE" }}
+          />
         </aside>
         <main className="min-w-0 flex-1">
           <div className="mb-4 flex gap-2 overflow-x-auto md:hidden">

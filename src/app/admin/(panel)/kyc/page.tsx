@@ -10,7 +10,7 @@ export default async function KycReviewPage() {
   });
 
   if (pending.length === 0) {
-    return <Card className="p-6 text-sm text-muted-foreground">No pending KYC reviews. 🎉</Card>;
+    return <Card className="p-6 text-sm text-muted-foreground">No pending KYC reviews.</Card>;
   }
 
   return (

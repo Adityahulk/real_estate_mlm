@@ -11,7 +11,7 @@ export default async function SettingsPage() {
       <CardHeader>
         <CardTitle>System Settings</CardTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          Every business figure lives here — change a value and the engines pick it up. New EMI schedules use the updated numbers.
+          Every business figure lives here — change a value and the engines pick it up. New EMI schedules use the updated numbers. Project rules, charges, and system conditions may change as per policy.
         </p>
       </CardHeader>
       <CardContent>

@@ -1,7 +1,6 @@
 import { currentMember } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
-import { payOnlineAction } from "@/server/member-actions";
+import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 
 const emiTone = { PAID: "success", DUE: "warning", OVERDUE: "danger", UPCOMING: "neutral", WAIVED: "neutral" } as const;
@@ -37,9 +36,9 @@ export default async function PaymentsPage() {
           <CardHeader><CardTitle>Cashback Plan</CardTitle></CardHeader>
           <CardContent>
             {!cashbackPaid ? (
-              <form action={payOnlineAction}>
-                <Button type="submit">Pay Remaining Full Amount</Button>
-              </form>
+              <div className="text-sm text-muted-foreground">
+                Admin will record the full payment after collecting it.
+              </div>
             ) : (
               <div className="space-y-1 text-sm">
                 {cashbackCredits.map((credit) => (
@@ -65,7 +64,6 @@ export default async function PaymentsPage() {
                 <th className="px-4 py-2">Pay By</th>
                 <th className="px-4 py-2">Amount</th>
                 <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -76,18 +74,10 @@ export default async function PaymentsPage() {
                   <td className="px-4 py-2">{e.payByDate.toISOString().slice(0, 10)}</td>
                   <td className="px-4 py-2">{formatINR(e.amountDue)}</td>
                   <td className="px-4 py-2"><Badge tone={emiTone[e.status]}>{e.status}</Badge></td>
-                  <td className="px-4 py-2 text-right">
-                    {e.status !== "PAID" && bookingPaid && (
-                      <form action={payOnlineAction}>
-                        <input type="hidden" name="emiScheduleId" value={e.id} />
-                        <Button size="sm" type="submit">Pay</Button>
-                      </form>
-                    )}
-                  </td>
                 </tr>
               ))}
               {schedule.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No EMI schedule (cashback plan).</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No EMI schedule (cashback plan).</td></tr>
               )}
             </tbody>
           </table>
