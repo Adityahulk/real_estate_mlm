@@ -23,6 +23,19 @@ The seed is idempotent. It creates business settings, commission rules, and the 
 
 Docker startup applies pending Prisma migrations, ensures settings and the initial admin exist, and then starts the application.
 
+## Clean Production Database
+
+This removes every customer, application, plot, payment, payout, draw, KYC record,
+notification, OTP, and audit log. It preserves system settings and commission rules,
+then creates exactly one admin and the hidden `COMPANY` sponsor:
+
+```bash
+CONFIRM_PRODUCTION_RESET=DELETE_ALL_CUSTOMER_DATA \
+RESET_ADMIN_EMAIL=admin@your-domain.com \
+RESET_ADMIN_PASSWORD='use-a-strong-password' \
+npm run db:clean:production
+```
+
 ## Verification
 
 ```bash
