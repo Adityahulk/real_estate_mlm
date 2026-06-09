@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { verifyPassword, signMember, setMemberCookie, signAdmin, setAdminCookie, clearMemberCookie, clearAdminCookie } from "@/lib/auth";
 import { createMemberApplication } from "@/lib/services/members";
@@ -9,49 +10,13 @@ import { notifier } from "@/lib/integrations";
 import { sha256 } from "@/lib/crypto";
 import { hashPassword } from "@/lib/password";
 
-export type ActionState = { error?: string; success?: string; data?: Record<string, string> } | undefined;
-
-// ── Email verification (sent before registration) ──────────────────────────
-export async function sendEmailVerificationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
-
-  // Check not already registered
-  const existing = await prisma.member.findUnique({ where: { email } });
-  if (existing) return { error: "An account with this email already exists. Please login." };
-
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  await prisma.otpCode.create({
-    data: {
-      target: email,
-      codeHash: sha256(code),
-      purpose: "REGISTER",
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    },
-  });
-
-  const hasEmailProvider = !!(process.env.RESEND_API_KEY || process.env.SMTP_USER);
-  if (!hasEmailProvider) {
-    // Dev mode — show OTP in UI
-    return { success: `[DEV] OTP: ${code} — no email provider configured`, data: { email } };
-  }
-
-  try {
-    await notifier.send({ channel: "EMAIL", to: email, title: "Verify Your Email", message: `Your OTP is ${code}. It expires in 15 minutes.` });
-  } catch (e) {
-    console.error("Email send failed:", e);
-    return { error: `Failed to send OTP email: ${e instanceof Error ? e.message : "Unknown error"}` };
-  }
-
-  return { success: `OTP sent to ${email}. Enter it below to continue.`, data: { email } };
-}
+export type ActionState = { error?: string; success?: string } | undefined;
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Enter full name"),
   aadhaarNumber: z.string().regex(/^\d{12}$/, "Aadhaar must be 12 digits"),
   mobile: z.string().regex(/^\d{10}$/, "Mobile must be 10 digits"),
   email: z.string().email("Invalid email"),
-  emailOtp: z.string().length(6, "Enter the 6-digit OTP sent to your email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   sponsorMemberId: z.string().optional(),
   paymentPlan: z.enum(["INSTALLMENT", "CASHBACK"]).default("INSTALLMENT"),
@@ -62,27 +27,18 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
-
-  // Verify email OTP
-  const email = parsed.data.email.trim().toLowerCase();
-  const otp = await prisma.otpCode.findFirst({
-    where: { target: email, purpose: "REGISTER", consumed: false, expiresAt: { gt: new Date() } },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!otp || otp.codeHash !== sha256(parsed.data.emailOtp)) {
-    return { error: "Invalid or expired email OTP. Please request a new one." };
-  }
-
   try {
     const application = await createMemberApplication({
       ...parsed.data,
-      email,
       sponsorMemberId: parsed.data.sponsorMemberId?.trim() || undefined,
     });
-    // Consume the OTP
-    await prisma.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
+    const requestHeaders = headers();
+    const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+    const protocol = requestHeaders.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+    const base = (host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_BASE_URL || "https://shreeshyam.group").replace(/\/$/, "");
+    const referralLink = `${base}/register?ref=${application.applicationCode}`;
     return {
-      success: `Your application is submitted with Application ID: ${application.id.slice(0, 8).toUpperCase()}. Contact admin for approval after booking payment.`,
+      success: `Your application is submitted with Free ID: ${application.applicationCode}. Referral link: ${referralLink}. Contact the admin for approval.`,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Registration failed" };

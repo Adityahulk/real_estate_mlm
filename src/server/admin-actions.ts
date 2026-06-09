@@ -99,6 +99,26 @@ export async function approveApplicationAction(_prev: { error?: string; success?
   }
 }
 
+export async function rejectApplicationAction(applicationId: string) {
+  const uid = adminId();
+  const application = await prisma.memberApplication.findUnique({ where: { id: applicationId } });
+  if (!application || application.status !== "PENDING") throw new Error("Pending application not found");
+  await prisma.$transaction([
+    prisma.memberApplication.update({ where: { id: applicationId }, data: { status: "REJECTED" } }),
+    prisma.auditLog.create({
+      data: {
+        actorId: uid,
+        action: "MEMBER_APPLICATION_REJECT",
+        entity: "MemberApplication",
+        entityId: applicationId,
+        before: { applicationCode: application.applicationCode, status: application.status },
+        after: { status: "REJECTED" },
+      },
+    }),
+  ]);
+  revalidatePath("/admin");
+}
+
 const offlineSchema = z.object({
   memberId: z.string().min(1),
   emiScheduleId: z.string().optional(),

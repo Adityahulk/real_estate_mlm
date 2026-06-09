@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { headers } from "next/headers";
 import { currentMember } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
@@ -6,7 +7,10 @@ import { CopyField } from "@/components/copy";
 
 export default async function ReferralPage() {
   const me = await currentMember();
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const requestHeaders = headers();
+  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+  const base = (host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_BASE_URL || "https://shreeshyam.group").replace(/\/$/, "");
   const link = `${base}/register?ref=${me.memberId}`;
   const qr = await QRCode.toDataURL(link, { width: 240, margin: 1 });
 
@@ -17,7 +21,7 @@ export default async function ReferralPage() {
   });
   const applications = await prisma.memberApplication.findMany({
     where: { sponsorId: me.id, status: "PENDING" },
-    select: { id: true, fullName: true, mobile: true, createdAt: true },
+    select: { id: true, applicationCode: true, fullName: true, mobile: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -41,7 +45,7 @@ export default async function ReferralPage() {
         <CardContent className="space-y-1 text-sm">
           {applications.map((application) => (
             <div key={application.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>{application.id.slice(0, 8).toUpperCase()} · {application.fullName}</span>
+              <span>{application.applicationCode} · {application.fullName}</span>
               <span className="text-muted-foreground">{application.createdAt.toISOString().slice(0, 10)}</span>
             </div>
           ))}

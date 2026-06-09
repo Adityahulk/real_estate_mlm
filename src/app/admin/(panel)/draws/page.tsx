@@ -48,7 +48,7 @@ export default async function AdminDrawsPage() {
         </CardHeader>
         <CardContent>
           <StatefulForm action={conductDrawAction}>
-            <div className="mb-4 grid gap-2 text-sm sm:grid-cols-5">
+            <div className="mb-4 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-5">
               {DEFAULT_DRAW_PRIZES.map((prize, index) => (
                 <div key={prize.name} className="rounded-lg border px-3 py-2">
                   <div className="text-xs text-muted-foreground">Prize #{index + 1}</div>
@@ -56,7 +56,7 @@ export default async function AdminDrawsPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="mt-3 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
               <p className="text-xs text-muted-foreground">
                 Eligible members must be active, KYC-approved, and paid during the monthly payment window: 1st to 25th. Draw is conducted between the 5th and 10th. Plot-prize documentation happens in the final month, conditions apply.
               </p>

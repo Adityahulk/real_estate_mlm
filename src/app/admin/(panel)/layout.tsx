@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth";
-import { SideNav } from "@/components/nav";
+import { MobileNav, SideNav } from "@/components/nav";
 import { logoutAdminAction } from "@/server/auth-actions";
 import { Button } from "@/components/ui";
 import { Brand } from "@/components/brand";
@@ -34,17 +33,20 @@ export default async function AdminPanelLayout({ children }: { children: React.R
     <div className="min-h-screen">
       <header className="border-b bg-card shadow-sm">
         <div className="brand-rule" />
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <div className="flex items-center gap-3">
             <Brand href="/admin" compact />
-            <span className="border-l pl-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Admin Panel</span>
+            <span className="hidden border-l pl-3 text-xs font-bold uppercase tracking-wide text-muted-foreground sm:inline">Admin Panel</span>
           </div>
-          <form action={logoutAdminAction}>
-            <Button size="sm" variant="outline">Logout</Button>
-          </form>
+          <div className="flex items-center gap-2">
+            <MobileNav items={items} title="Admin Menu" />
+            <form action={logoutAdminAction}>
+              <Button size="sm" variant="outline">Logout</Button>
+            </form>
+          </div>
         </div>
       </header>
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
+      <div className="mx-auto flex max-w-7xl gap-6 px-3 py-4 sm:px-4 sm:py-6">
         <aside className="hidden w-52 shrink-0 md:block">
           <SideNav
             items={items}
@@ -53,13 +55,6 @@ export default async function AdminPanelLayout({ children }: { children: React.R
           />
         </aside>
         <main className="min-w-0 flex-1">
-          <div className="mb-4 flex gap-2 overflow-x-auto md:hidden">
-            {items.map((i) => (
-              <Link key={i.href} href={i.href} className="whitespace-nowrap rounded-md border border-l-2 border-l-brand bg-card px-3 py-1.5 text-xs font-semibold">
-                {i.label}
-              </Link>
-            ))}
-          </div>
           {children}
         </main>
       </div>

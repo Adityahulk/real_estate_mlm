@@ -2,9 +2,9 @@ import Link from "next/link";
 import { adminOverview } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
 import { getNumberSetting } from "@/lib/settings";
-import { approveApplicationAction } from "@/server/admin-actions";
+import { approveApplicationAction, rejectApplicationAction } from "@/server/admin-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
-import { Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Stat } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Stat } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
 
@@ -13,7 +13,10 @@ export default async function AdminOverview() {
     adminOverview(),
     prisma.memberApplication.findMany({
       where: { status: "PENDING" },
-      include: { sponsor: { select: { memberId: true, fullName: true } } },
+      include: {
+        sponsor: { select: { memberId: true, fullName: true } },
+        referrerApplication: { select: { applicationCode: true, fullName: true } },
+      },
       orderBy: { createdAt: "asc" },
     }),
     getNumberSetting("booking_amount"),
@@ -47,12 +50,12 @@ export default async function AdminOverview() {
               <div className="mb-3 grid gap-1 text-sm sm:grid-cols-3">
                 <div><span className="text-muted-foreground">Applicant:</span> <b>{application.fullName}</b></div>
                 <div><span className="text-muted-foreground">Mobile:</span> <b>{application.mobile}</b></div>
-                <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor ? `${application.sponsor.memberId} · ${application.sponsor.fullName}` : "No referrer"}</b></div>
-                <div><span className="text-muted-foreground">Free Application ID:</span> <b>{application.id.slice(0, 8).toUpperCase()}</b></div>
+                <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor ? `${application.sponsor.memberId} · ${application.sponsor.fullName}` : application.referrerApplication ? `${application.referrerApplication.applicationCode} · ${application.referrerApplication.fullName}` : "No referrer"}</b></div>
+                <div><span className="text-muted-foreground">Free ID:</span> <b>{application.applicationCode}</b></div>
               </div>
               <StatefulForm action={approveApplicationAction}>
                 <input type="hidden" name="applicationId" value={application.id} />
-                <div className="grid gap-3 sm:grid-cols-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <Field label="Customer Plot Number">
                     <Input name="plotNumber" list="available-plot-numbers" placeholder="e.g. P001" />
                   </Field>
@@ -75,6 +78,9 @@ export default async function AdminOverview() {
                   </div>
                 </div>
               </StatefulForm>
+              <form action={rejectApplicationAction.bind(null, application.id)} className="mt-2 flex justify-end">
+                <Button type="submit" variant="danger" size="sm">Reject Application</Button>
+              </form>
             </div>
           ))}
           {applications.length === 0 && (

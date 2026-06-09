@@ -281,23 +281,28 @@ model Member {
 }
 
 model MemberApplication {
-  id            String                  @id @default(uuid())
-  fullName      String
-  aadhaarNumber String? // encrypted
-  aadhaarLast4  String?
-  mobile        String                  @unique
-  whatsapp      String?
-  email         String                  @unique
-  passwordHash  String
-  sponsorId     String?
-  sponsor       Member?                 @relation("ApplicationSponsor", fields: [sponsorId], references: [id])
-  paymentPlan   PaymentPlan             @default(INSTALLMENT)
-  status        MemberApplicationStatus @default(PENDING)
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
+  id                    String                  @id @default(uuid())
+  applicationCode       String                  @unique
+  fullName              String
+  aadhaarNumber         String? // encrypted
+  aadhaarLast4          String?
+  mobile                String                  @unique
+  whatsapp              String?
+  email                 String                  @unique
+  passwordHash          String
+  sponsorId             String?
+  sponsor               Member?                 @relation("ApplicationSponsor", fields: [sponsorId], references: [id])
+  referrerApplicationId String?
+  referrerApplication   MemberApplication?      @relation("ApplicationReferrals", fields: [referrerApplicationId], references: [id])
+  referredApplications  MemberApplication[]     @relation("ApplicationReferrals")
+  paymentPlan           PaymentPlan             @default(INSTALLMENT)
+  status                MemberApplicationStatus @default(PENDING)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
   @@index([status, createdAt])
   @@index([sponsorId])
+  @@index([referrerApplicationId])
 }
 
 model MemberKyc {

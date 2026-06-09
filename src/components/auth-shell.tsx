@@ -14,12 +14,12 @@ export function AuthShell({ eyebrow, title, description, children, wide = false 
           </div>
         </div>
       </section>
-      <section className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-8">
+      <section className="flex min-h-screen items-start justify-center px-4 py-6 sm:items-center sm:px-8 sm:py-10">
         <div className={wide ? "w-full max-w-3xl" : "w-full max-w-md"}>
           <Brand />
-          <div className="mt-8 border-l-4 border-brand pl-4">
+          <div className="mt-6 border-l-4 border-brand pl-4 sm:mt-8">
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-brand">{eyebrow}</div>
-            <h1 className="mt-1 text-3xl font-black uppercase">{title}</h1>
+            <h1 className="mt-1 text-2xl font-black uppercase sm:text-3xl">{title}</h1>
             <p className="mt-2 text-sm text-muted-foreground">{description}</p>
           </div>
           <div className="mt-6">{children}</div>

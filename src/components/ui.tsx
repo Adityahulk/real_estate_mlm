@@ -11,7 +11,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5 pb-2", className)} {...props} />;
+  return <div className={cn("p-4 pb-2 sm:p-5 sm:pb-2", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -19,7 +19,7 @@ export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHead
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5 pt-3", className)} {...props} />;
+  return <div className={cn("p-4 pt-3 sm:p-5 sm:pt-3", className)} {...props} />;
 }
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -43,7 +43,7 @@ export function Button({ className, variant = "primary", size = "md", ...props }
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md font-semibold transition active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex max-w-full items-center justify-center gap-2 rounded-md font-semibold transition active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         variants[variant],
         sizes[size],
         className
@@ -126,9 +126,9 @@ export function Badge({
 
 export function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <Card className="border-l-4 border-l-brand p-4">
+    <Card className="min-w-0 border-l-4 border-l-brand p-4">
       <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+      <div className="mt-1 break-words text-xl font-bold sm:text-2xl">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </Card>
   );
