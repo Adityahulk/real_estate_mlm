@@ -1,7 +1,6 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
-import { useActionState } from "react";
+import { useFormStatus, useFormState as useActionState } from "react-dom";
 import { Button } from "./ui";
 
 type ActionState = { error?: string; success?: string } | undefined;

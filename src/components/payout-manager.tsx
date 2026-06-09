@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { useActionState } from "react";
+import { useFormState as useActionState } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { processDuePayoutsAction } from "@/server/admin-actions";
 import { formatINR } from "@/lib/money";

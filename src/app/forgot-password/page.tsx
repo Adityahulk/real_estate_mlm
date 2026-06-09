@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormStatus } from "react-dom";
-import { useActionState, useState } from "react";
+import { useFormStatus, useFormState as useActionState } from "react-dom";
+import { useState } from "react";
 import { requestPasswordResetAction, resetPasswordAction } from "@/server/auth-actions";
 import { SubmitButton } from "@/components/form";
 import { Card, Field, Input } from "@/components/ui";
@@ -46,8 +46,8 @@ export default function ForgotPasswordPage() {
               <Input name="email" type="email" autoComplete="email" placeholder="you@email.com" required />
             </Field>
             <SendOtpButton />
-            {reqState?.error && <p className="text-sm text-destructive">{reqState.error}</p>}
-            {reqState?.success && <p className="text-sm text-green-700">{reqState.success}</p>}
+            {reqState?.error && <p className="text-sm text-danger">{reqState.error}</p>}
+            {reqState?.success && <p className="text-sm text-success">{reqState.success}</p>}
           </form>
         </Card>
 
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
 
           {resetDone ? (
             <div className="flex flex-col gap-3">
-              <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              <div className="rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
                 {resetState?.success}
               </div>
               <Link href="/login" className="text-sm font-medium text-brand underline">
@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
                 <Input name="password" type="password" autoComplete="new-password" placeholder="At least 6 characters" required />
               </Field>
               <SubmitButton>Update Password</SubmitButton>
-              {resetState?.error && <p className="text-sm text-destructive">{resetState.error}</p>}
+              {resetState?.error && <p className="text-sm text-danger">{resetState.error}</p>}
             </form>
           )}
 
