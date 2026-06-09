@@ -36,14 +36,14 @@ export class ApiError extends Error {
   }
 }
 
-export function requireMember(): MemberSession {
-  const s = getMemberSession();
+export async function requireMember(): Promise<MemberSession> {
+  const s = await getMemberSession();
   if (!s) throw new ApiError("Not authenticated", 401);
   return s;
 }
 
-export function requireAdmin(): AdminSession {
-  const s = getAdminSession();
+export async function requireAdmin(): Promise<AdminSession> {
+  const s = await getAdminSession();
   if (!s) throw new ApiError("Admin authentication required", 401);
   return s;
 }

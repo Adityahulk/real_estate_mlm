@@ -8,8 +8,8 @@ echo "▶ Running Prisma migrations..."
 npx prisma migrate resolve --rolled-back 20260606180000_reconcile_payout_schema 2>/dev/null || true
 npx prisma migrate deploy
 
-echo "▶ Running seed (idempotent)..."
-npm run seed || echo "⚠ Seed skipped (already seeded)"
+echo "▶ Ensuring production settings and initial admin exist..."
+npm run seed
 
 echo "▶ Starting Next.js server..."
 exec node server.js

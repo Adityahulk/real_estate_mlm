@@ -4,7 +4,7 @@ import { computeCommissionLines } from "../engines/commission";
 import { DEFAULT_COMMISSION_RULES, MAX_SPONSOR_DEPTH } from "../engines/commissionRules";
 import { buildSponsorChain } from "../engines/tree";
 import { getNumberSetting } from "../settings";
-import { notifier, storage } from "../integrations";
+import { storage } from "../integrations";
 import { formatINR, applyAdminCharge, round2 } from "../money";
 import { addDays } from "../engines/emi";
 import { createCashbackCreditsTx } from "./operations";
@@ -130,7 +130,7 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
     await recomputeEligibilityTx(tx, payment.memberId);
   });
 
-  // 6. Generate a receipt (stub PDF -> text) and attach.
+  // 6. Generate a plain-text receipt and attach it.
   const receiptUrl = await generateReceipt(payment.id);
   await prisma.payment.update({ where: { id: payment.id }, data: { receiptUrl } });
 
@@ -141,16 +141,10 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
       type: "PAYMENT_VERIFIED",
       title: "Payment received",
       message: `We received ${formatINR(payment.amount)}. Receipt is ready.`,
-      channel: "WHATSAPP",
+      channel: "IN_APP",
       status: "SENT",
       sentAt: new Date(),
     },
-  });
-  await notifier.send({
-    channel: "WHATSAPP",
-    to: payment.member.whatsapp ?? payment.member.mobile,
-    title: "Payment received",
-    message: `Thank you! ${formatINR(payment.amount)} received for plot ${payment.member.memberId}.`,
   });
 
   return prisma.payment.findUnique({ where: { id: payment.id } });
@@ -185,7 +179,7 @@ async function generateReceipt(paymentId: string): Promise<string> {
     `Status: VERIFIED`,
   ].join("\n");
   return storage.save({
-    folder: "receipts",
+    folder: `receipts/${p.memberId}`,
     filename: `receipt_${p.id}.txt`,
     data: Buffer.from(content, "utf8"),
   });

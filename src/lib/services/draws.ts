@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
-import { randomSource, notifier } from "../integrations";
-import { formatINR } from "../money";
+import { randomSource } from "../integrations";
 import { getNumberSetting } from "../settings";
 import { isBronze } from "../engines/eligibility";
 
@@ -72,6 +71,17 @@ export async function eligibleDrawMembers() {
 export async function conductDraw(args: { conductedById: string; prizes?: DrawPrize[] }) {
   const prizes = args.prizes ?? DEFAULT_DRAW_PRIZES;
   if (!prizes.length) throw new Error("Enter at least one prize");
+  const now = new Date();
+  if (now.getDate() < 5 || now.getDate() > 10) {
+    throw new Error("Lucky draws can only be conducted between the 5th and 10th of the month");
+  }
+  const frequencyMonths = await getNumberSetting("draw_frequency_months");
+  const latestDraw = await prisma.drawEvent.findFirst({ where: { status: "COMPLETED" }, orderBy: { drawDate: "desc" } });
+  if (latestDraw) {
+    const nextAllowed = new Date(latestDraw.drawDate);
+    nextAllowed.setMonth(nextAllowed.getMonth() + frequencyMonths);
+    if (now < nextAllowed) throw new Error(`Next draw can be conducted on or after ${nextAllowed.toISOString().slice(0, 10)}`);
+  }
 
   const eligible = await eligibleDrawMembers();
   if (!eligible.length) throw new Error("No eligible members are available for the draw");
@@ -93,7 +103,7 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
     const event = await tx.drawEvent.create({
       data: {
         drawNumber,
-        drawDate: new Date(),
+        drawDate: now,
         status: "COMPLETED",
         eligibleCount: eligible.length,
         conductedById: args.conductedById,
@@ -122,7 +132,7 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
           type: "DRAW_RESULT",
           title: `Lucky Draw #${drawNumber} Winner`,
           message: `Congratulations! You won ${winner.prize.name}.`,
-          channel: "WHATSAPP",
+          channel: "IN_APP",
           status: "SENT",
           sentAt: new Date(),
         },
@@ -161,7 +171,7 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
               type: "DRAW_RESULT",
               title: `Lucky Draw #${drawNumber} Bronze Bonus`,
               message: `Your direct referral won first prize, so you also receive ${winner.prize.name}.`,
-              channel: "WHATSAPP",
+              channel: "IN_APP",
               status: "SENT",
               sentAt: new Date(),
             },
@@ -172,17 +182,6 @@ export async function conductDraw(args: { conductedById: string; prizes?: DrawPr
 
     return event;
   });
-
-  for (const winner of winners) {
-    const valueText =
-      winner.prize.value === undefined ? "" : ` worth ${formatINR(winner.prize.value)}`;
-    await notifier.send({
-      channel: "WHATSAPP",
-      to: winner.member.whatsapp ?? winner.member.mobile,
-      title: `Lucky Draw #${drawNumber} Winner`,
-      message: `Congratulations! You won ${winner.prize.name}${valueText}.`,
-    });
-  }
 
   return { draw, winners };
 }

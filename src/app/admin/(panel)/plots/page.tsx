@@ -8,8 +8,8 @@ import { formatINR } from "@/lib/money";
 
 const plotTone = { AVAILABLE: "success", BOOKED: "warning", SOLD: "brand", DRAW_WON: "brand" } as const;
 
-export default async function PlotsPage({ searchParams }: { searchParams?: { q?: string } }) {
-  const query = searchParams?.q?.trim() ?? "";
+export default async function PlotsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = (await searchParams).q?.trim() ?? "";
   const [plots, totalPlots] = await Promise.all([
     prisma.plot.findMany({
       where: query ? { plotNumber: { contains: query, mode: "insensitive" } } : undefined,

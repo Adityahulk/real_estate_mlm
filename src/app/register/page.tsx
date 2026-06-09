@@ -4,7 +4,8 @@ import { StatefulForm, SubmitButton } from "@/components/form";
 import { Field, Input, Select } from "@/components/ui";
 import { AuthShell } from "@/components/auth-shell";
 
-export default function RegisterPage({ searchParams }: { searchParams: { ref?: string } }) {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
+  const { ref } = await searchParams;
   return (
     <AuthShell wide eyebrow="Free Member Application" title="Register Free" description="Create a free application first. Your ID appears in the structure only after admin collects the token amount and assigns your chosen plot.">
         <StatefulForm action={registerAction}>
@@ -27,7 +28,7 @@ export default function RegisterPage({ searchParams }: { searchParams: { ref?: s
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Sponsor / Referral ID (optional)">
-              <Input name="sponsorMemberId" defaultValue={searchParams.ref ?? ""} placeholder="Paid member ID or FREE- ID" />
+              <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Paid member ID or FREE- ID" />
             </Field>
             <Field label="Payment Plan">
               <Select name="paymentPlan" defaultValue="INSTALLMENT">

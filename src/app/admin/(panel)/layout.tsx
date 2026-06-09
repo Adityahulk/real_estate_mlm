@@ -21,13 +21,17 @@ const items = [
 ];
 
 export default async function AdminPanelLayout({ children }: { children: React.ReactNode }) {
-  const session = getAdminSession();
+  const session = await getAdminSession();
   if (!session) redirect("/login");
-  const root = await prisma.member.findFirst({
-    where: { NOT: { memberId: "COMPANY" } },
-    select: { leftTeamCount: true, rightTeamCount: true, rank: true },
-    orderBy: { joinDate: "asc" },
-  });
+  const [admin, root] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.sub }, select: { isActive: true } }),
+    prisma.member.findFirst({
+      where: { NOT: { memberId: "COMPANY" } },
+      select: { leftTeamCount: true, rightTeamCount: true, rank: true },
+      orderBy: { joinDate: "asc" },
+    }),
+  ]);
+  if (!admin?.isActive) redirect("/login");
 
   return (
     <div className="min-h-screen">

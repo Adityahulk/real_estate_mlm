@@ -35,10 +35,11 @@ function MemberTreeNode({ node }: { node: TreeNode }) {
   );
 }
 
-export default async function MembersPage({ searchParams }: { searchParams: { q?: string; view?: string; root?: string; depth?: string } }) {
-  const view = searchParams.view ?? "tree";
-  const q = searchParams.q?.trim();
-  const depth = Math.min(Math.max(Number(searchParams.depth ?? 4), 1), 7);
+export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string; view?: string; root?: string; depth?: string }> }) {
+  const params = await searchParams;
+  const view = params.view ?? "tree";
+  const q = params.q?.trim();
+  const depth = Math.min(Math.max(Number(params.depth ?? 4), 1), 7);
 
   if (view === "list") {
     const members = await prisma.member.findMany({
@@ -105,8 +106,8 @@ export default async function MembersPage({ searchParams }: { searchParams: { q?
     );
   }
 
-  const root = searchParams.root
-    ? await prisma.member.findFirst({ where: { memberId: { equals: searchParams.root, mode: "insensitive" }, NOT: { memberId: "COMPANY" } } })
+  const root = params.root
+    ? await prisma.member.findFirst({ where: { memberId: { equals: params.root, mode: "insensitive" }, NOT: { memberId: "COMPANY" } } })
     : await prisma.member.findFirst({ where: { NOT: { memberId: "COMPANY" } }, orderBy: { joinDate: "asc" } });
   const tree = root ? await downlineTree(root.id, depth) : undefined;
 
@@ -131,7 +132,7 @@ export default async function MembersPage({ searchParams }: { searchParams: { q?
         <CardHeader>
           <CardTitle>Tree Controls</CardTitle>
           <form action="/admin/members" className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Input name="root" defaultValue={searchParams.root ?? root?.memberId ?? ""} placeholder="Root Member ID, e.g. P001" />
+            <Input name="root" defaultValue={params.root ?? root?.memberId ?? ""} placeholder="Root Member ID, e.g. P001" />
             <Select name="depth" defaultValue={String(depth)}>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d} level(s)</option>)}
             </Select>

@@ -5,11 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Field, Input, Select }
 import { formatINR } from "@/lib/money";
 
 export default async function AdminPaymentsPage() {
-  const [members, payments] = await Promise.all([
+  const [members, openEmis, payments] = await Promise.all([
     prisma.member.findMany({
       where: { NOT: { memberId: "COMPANY" } },
-      select: { id: true, memberId: true, fullName: true },
+      select: { id: true, memberId: true, fullName: true, paymentPlan: true },
       orderBy: { memberId: "asc" },
+    }),
+    prisma.emiSchedule.findMany({
+      where: { status: { in: ["UPCOMING", "DUE", "OVERDUE"] } },
+      include: { member: { select: { memberId: true, fullName: true } } },
+      orderBy: [{ dueDate: "asc" }, { installmentNo: "asc" }],
     }),
     prisma.payment.findMany({
       include: { member: { select: { memberId: true, fullName: true } } },
@@ -32,6 +37,22 @@ export default async function AdminPaymentsPage() {
                   ))}
                 </Select>
               </Field>
+              <Field label="Payment Type">
+                <Select name="paymentType" defaultValue="EMI">
+                  <option value="EMI">EMI installment</option>
+                  <option value="CASHBACK_FULL">Cashback plan full payment</option>
+                </Select>
+              </Field>
+              <Field label="EMI Installment">
+                <Select name="emiScheduleId" defaultValue="">
+                  <option value="">Select only for EMI payment</option>
+                  {openEmis.map((emi) => (
+                    <option key={emi.id} value={emi.id}>
+                      {emi.member.memberId} · EMI #{emi.installmentNo} · {formatINR(emi.amountDue)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Amount (₹)"><Input name="amount" inputMode="numeric" placeholder="10000" /></Field>
               <Field label="Payment Mode">
                 <Select name="paymentMode">
@@ -45,7 +66,7 @@ export default async function AdminPaymentsPage() {
               <Field label="Payment Date"><Input name="paymentDate" type="date" /></Field>
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              Leave EMI blank to record the booking payment. This runs the same commission + receipt flow as online payments.
+              Booking payments are recorded during member approval. For an EMI, select its exact installment. For a cashback member, choose full payment and enter the remaining plot balance.
             </p>
             <SubmitButton>Verify &amp; Record</SubmitButton>
           </StatefulForm>

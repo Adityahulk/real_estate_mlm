@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
+import { useActionState } from "react";
 import { ChevronDown } from "lucide-react";
 import { processDuePayoutsAction } from "@/server/admin-actions";
 import { formatINR } from "@/lib/money";
@@ -37,7 +38,7 @@ function ProcessSelectedButton({ count }: { count: number }) {
 export function PayoutManager({ records }: { records: PayoutRecord[] }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [amount, setAmount] = useState("0.00");
-  const [state, action] = useFormState(processDuePayoutsAction, undefined);
+  const [state, action] = useActionState(processDuePayoutsAction, undefined);
   const groups = useMemo(() => {
     const grouped = new Map<string, PayoutRecord[]>();
     for (const record of records) {
@@ -87,6 +88,8 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
           Mode
           <select name="paymentMode" defaultValue="CASH" className="mt-1 h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:border-brand">
             <option value="CASH">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="BANK_TRANSFER">Bank transfer</option>
             <option value="ONLINE">Online</option>
           </select>
         </label>

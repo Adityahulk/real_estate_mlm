@@ -5,7 +5,7 @@ import { getAllSettings } from "../settings";
 import { unlockedPairRewards } from "../engines/eligibility";
 
 export async function currentMember() {
-  const s = getMemberSession();
+  const s = await getMemberSession();
   if (!s) redirect("/login");
   const member = await prisma.member.findUnique({
     where: { id: s.sub },
@@ -16,8 +16,8 @@ export async function currentMember() {
   return member;
 }
 
-export function requireAdminOrRedirect() {
-  const s = getAdminSession();
+export async function requireAdminOrRedirect() {
+  const s = await getAdminSession();
   if (!s) redirect("/admin/login");
   return s;
 }

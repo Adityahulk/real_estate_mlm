@@ -9,6 +9,7 @@ import { createMemberApplication } from "@/lib/services/members";
 import { notifier } from "@/lib/integrations";
 import { sha256 } from "@/lib/crypto";
 import { hashPassword } from "@/lib/password";
+import crypto from "crypto";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -32,7 +33,7 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
       ...parsed.data,
       sponsorMemberId: parsed.data.sponsorMemberId?.trim() || undefined,
     });
-    const requestHeaders = headers();
+    const requestHeaders = await headers();
     const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
     const protocol = requestHeaders.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
     const base = (host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_BASE_URL || "https://shreeshyam.group").replace(/\/$/, "");
@@ -58,7 +59,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (loginId.includes("@")) {
     const admin = await prisma.user.findUnique({ where: { email: loginId } });
     if (admin && admin.isActive && await verifyPassword(parsed.data.password, admin.passwordHash)) {
-      setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
+      await setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
       redirect("/admin");
     }
   }
@@ -77,17 +78,17 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (!member.isActive) {
     return { error: "Your account is pending admin approval after booking payment verification." };
   }
-  setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));
+  await setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));
   redirect("/member");
 }
 
 export async function logoutMemberAction() {
-  clearMemberCookie();
+  await clearMemberCookie();
   redirect("/login");
 }
 
 export async function logoutAdminAction() {
-  clearAdminCookie();
+  await clearAdminCookie();
   redirect("/login");
 }
 
@@ -95,8 +96,12 @@ export async function requestPasswordResetAction(_prev: ActionState, formData: F
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
   const member = await prisma.member.findUnique({ where: { email } });
-  if (!member) return { error: "No member account found for this email" };
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  if (!member) return { success: "If this email belongs to a member, a reset OTP has been sent." };
+  const recent = await prisma.otpCode.findFirst({
+    where: { target: email, purpose: "RESET", createdAt: { gte: new Date(Date.now() - 60_000) } },
+  });
+  if (recent) return { error: "Please wait one minute before requesting another OTP" };
+  const code = String(crypto.randomInt(100000, 1000000));
   await prisma.otpCode.create({
     data: {
       target: email,

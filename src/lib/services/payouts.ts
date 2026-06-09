@@ -1,14 +1,14 @@
 import { prisma } from "../db";
-import { notifier } from "../integrations";
 import { formatINR } from "../money";
+import { Prisma, PayoutMode } from "@prisma/client";
 
 // Lists payouts grouped by status for the admin screen.
 export async function payoutSummary() {
   const dueBy = endOfToday();
   const [pending, upcoming, onHold, paid] = await Promise.all([
-    prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { lte: dueBy } }, select: { netAmount: true } }),
-    prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { gt: dueBy } }, select: { netAmount: true } }),
-    prisma.payout.findMany({ where: { status: "ON_HOLD" }, select: { netAmount: true } }),
+    prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { lte: dueBy } }, select: { netAmount: true, paidAmount: true } }),
+    prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { gt: dueBy } }, select: { netAmount: true, paidAmount: true } }),
+    prisma.payout.findMany({ where: { status: "ON_HOLD" }, select: { netAmount: true, paidAmount: true } }),
     prisma.payout.findMany({ where: { status: "PAID" }, select: { netAmount: true } }),
   ]);
   const recent = await prisma.payout.findMany({
@@ -22,78 +22,87 @@ export async function payoutSummary() {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  const sumNet = (rows: { netAmount: { toNumber(): number } }[]) =>
-    rows.reduce((sum, row) => sum + row.netAmount.toNumber(), 0);
+  const sumRemaining = (rows: { netAmount: { toNumber(): number }; paidAmount?: { toNumber(): number } }[]) =>
+    rows.reduce((sum, row) => sum + Math.max(0, row.netAmount.toNumber() - (row.paidAmount?.toNumber() ?? 0)), 0);
   return {
-    pending: { count: pending.length, net: sumNet(pending) },
-    upcoming: { count: upcoming.length, net: sumNet(upcoming) },
-    onHold: { count: onHold.length, net: sumNet(onHold) },
-    paid: { count: paid.length, net: sumNet(paid) },
+    pending: { count: pending.length, net: sumRemaining(pending) },
+    upcoming: { count: upcoming.length, net: sumRemaining(upcoming) },
+    onHold: { count: onHold.length, net: sumRemaining(onHold) },
+    paid: { count: paid.length, net: paid.reduce((sum, row) => sum + row.netAmount.toNumber(), 0) },
     recent,
   };
 }
 
 export async function processDuePayouts(args: {
   processedById: string;
-  payoutIds?: string[];
+  payoutIds: string[];
+  amountToPay: number;
+  paymentMode: PayoutMode;
 }) {
+  if (!args.payoutIds.length) throw new Error("Select at least one due payout");
+  if (!Number.isFinite(args.amountToPay) || args.amountToPay <= 0) throw new Error("Enter a valid payout amount");
+
   const due = await prisma.payout.findMany({
     where: {
       status: "PENDING",
       payoutDate: { lte: endOfToday() },
-      ...(args.payoutIds?.length ? { id: { in: args.payoutIds } } : {}),
+      id: { in: args.payoutIds },
     },
-    include: { member: { select: { id: true, memberId: true, whatsapp: true, mobile: true } } },
+    select: { id: true, memberId: true, netAmount: true, paidAmount: true },
     orderBy: { createdAt: "asc" },
   });
-  if (!due.length) return { processed: 0, failed: 0 };
+  if (due.length !== new Set(args.payoutIds).size) throw new Error("One or more selected payouts are no longer due");
 
+  const totalRemaining = due.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0);
+  if (args.amountToPay > totalRemaining + 0.001) throw new Error(`Amount cannot exceed the selected pending total of ${formatINR(totalRemaining)}`);
+
+  let remainingToAllocate = new Prisma.Decimal(args.amountToPay.toFixed(2));
   let processed = 0;
-  const paidByMember = new Map<string, { member: (typeof due)[number]["member"]; amount: number }>();
+  const paidByMember = new Map<string, number>();
 
   for (const p of due) {
+    if (remainingToAllocate.lte(0)) break;
+    const pending = p.netAmount.minus(p.paidAmount);
+    if (pending.lte(0)) continue;
+    const paidNow = Prisma.Decimal.min(pending, remainingToAllocate);
+    const newPaidAmount = p.paidAmount.plus(paidNow);
+    const fullyPaid = newPaidAmount.gte(p.netAmount);
+
     await prisma.$transaction(async (tx) => {
-      const utr = "UTR" + Math.random().toString(36).slice(2, 10).toUpperCase();
       await tx.payout.update({
         where: { id: p.id },
         data: {
-          status: "PAID",
-          utrNumber: utr,
-          paidAt: new Date(),
+          paidAmount: newPaidAmount,
+          status: fullyPaid ? "PAID" : "PENDING",
+          paymentMode: args.paymentMode,
+          paidAt: fullyPaid ? new Date() : null,
           processedById: args.processedById,
         },
       });
-      await tx.commissionLedger.updateMany({ where: { payoutId: p.id }, data: { status: "PAID" } });
+      if (fullyPaid) {
+        await tx.commissionLedger.updateMany({ where: { payoutId: p.id }, data: { status: "PAID" } });
+      }
     });
     processed++;
-    const prev = paidByMember.get(p.memberId);
-    paidByMember.set(p.memberId, {
-      member: p.member,
-      amount: (prev?.amount ?? 0) + p.netAmount.toNumber(),
-    });
+    remainingToAllocate = remainingToAllocate.minus(paidNow);
+    paidByMember.set(p.memberId, (paidByMember.get(p.memberId) ?? 0) + paidNow.toNumber());
   }
 
-  for (const [memberId, { member, amount }] of Array.from(paidByMember.entries())) {
+  for (const [memberId, amount] of Array.from(paidByMember.entries())) {
     await prisma.notification.create({
       data: {
         memberId,
         type: "PAYOUT_DONE",
         title: "Income payout recorded",
         message: `${formatINR(amount)} payout recorded by admin.`,
-        channel: "WHATSAPP",
+        channel: "IN_APP",
         status: "SENT",
         sentAt: new Date(),
       },
     });
-    await notifier.send({
-      channel: "WHATSAPP",
-      to: member.whatsapp ?? member.mobile,
-      title: "Income payout recorded",
-      message: `${formatINR(amount)} payout recorded by admin.`,
-    });
   }
 
-  return { processed, failed: 0 };
+  return { processed, paidNow: args.amountToPay - remainingToAllocate.toNumber() };
 }
 
 // When a member's KYC is approved, release their held payouts to PENDING.

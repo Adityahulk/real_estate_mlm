@@ -13,15 +13,18 @@ import { hashPassword } from "@/lib/password";
 import { storage } from "@/lib/integrations";
 // formatINR removed — processDuePayouts no longer returns paidNow amount
 import { Prisma } from "@prisma/client";
+import { SETTING_META, type SettingKey } from "@/lib/settings";
 
-function adminId(): string {
-  const s = getAdminSession();
+async function adminId(): Promise<string> {
+  const s = await getAdminSession();
   if (!s) throw new Error("Admin auth required");
+  const admin = await prisma.user.findUnique({ where: { id: s.sub }, select: { isActive: true } });
+  if (!admin?.isActive) throw new Error("Admin account is inactive");
   return s.sub;
 }
 
 export async function approveKycAction(memberId: string) {
-  const uid = adminId();
+  const uid = await adminId();
   await prisma.$transaction(async (tx) => {
     await tx.memberKyc.update({
       where: { memberId },
@@ -36,13 +39,13 @@ export async function approveKycAction(memberId: string) {
   // Release any commission held while this member's KYC was pending.
   await releaseHeldPayouts(memberId);
   await prisma.notification.create({
-    data: { memberId, type: "KYC_UPDATE", title: "KYC approved", message: "Your KYC is approved. You can now make payments.", channel: "WHATSAPP", status: "SENT", sentAt: new Date() },
+    data: { memberId, type: "KYC_UPDATE", title: "KYC approved", message: "Your KYC is approved. Held income payouts can now be released.", channel: "IN_APP", status: "SENT", sentAt: new Date() },
   });
   revalidatePath("/admin/kyc");
 }
 
 export async function rejectKycAction(memberId: string, reason: string) {
-  const uid = adminId();
+  const uid = await adminId();
   await prisma.$transaction(async (tx) => {
     await tx.memberKyc.update({
       where: { memberId },
@@ -54,7 +57,7 @@ export async function rejectKycAction(memberId: string, reason: string) {
     });
   });
   await prisma.notification.create({
-    data: { memberId, type: "KYC_UPDATE", title: "KYC rejected", message: `Your KYC was rejected: ${reason}`, channel: "WHATSAPP", status: "SENT", sentAt: new Date() },
+    data: { memberId, type: "KYC_UPDATE", title: "KYC rejected", message: `Your KYC was rejected: ${reason}`, channel: "IN_APP", status: "SENT", sentAt: new Date() },
   });
   revalidatePath("/admin/kyc");
 }
@@ -74,7 +77,7 @@ const approveApplicationSchema = z.object({
 });
 
 export async function approveApplicationAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
-  const uid = adminId();
+  const uid = await adminId();
   const parsed = approveApplicationSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -100,7 +103,7 @@ export async function approveApplicationAction(_prev: { error?: string; success?
 }
 
 export async function rejectApplicationAction(applicationId: string) {
-  const uid = adminId();
+  const uid = await adminId();
   const application = await prisma.memberApplication.findUnique({ where: { id: applicationId } });
   if (!application || application.status !== "PENDING") throw new Error("Pending application not found");
   await prisma.$transaction([
@@ -121,6 +124,7 @@ export async function rejectApplicationAction(applicationId: string) {
 
 const offlineSchema = z.object({
   memberId: z.string().min(1),
+  paymentType: z.enum(["EMI", "CASHBACK_FULL"]),
   emiScheduleId: z.string().optional(),
   amount: z.coerce.number().positive(),
   paymentMode: z.enum(["CASH", "UPI", "BANK_TRANSFER", "OFFLINE"]),
@@ -129,7 +133,7 @@ const offlineSchema = z.object({
 });
 
 export async function recordOfflinePaymentAction(_prev: { error?: string } | undefined, formData: FormData) {
-  const uid = adminId();
+  const uid = await adminId();
   const parsed = offlineSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -137,16 +141,24 @@ export async function recordOfflinePaymentAction(_prev: { error?: string } | und
   const member = await prisma.member.findUnique({ where: { id: d.memberId } });
   if (!member) return { error: "Member not found" };
 
-  const paymentType: "BOOKING" | "EMI" = emiScheduleId ? "EMI" : "BOOKING";
-  if (emiScheduleId) {
+  const paymentType = d.paymentType;
+  if (paymentType === "EMI") {
+    if (!emiScheduleId) return { error: "Select the EMI installment being paid" };
     const emi = await prisma.emiSchedule.findUnique({ where: { id: emiScheduleId } });
     if (!emi || emi.memberId !== d.memberId) return { error: "Invalid EMI for selected member" };
     if (emi.status === "PAID") return { error: "This EMI is already paid" };
+    if (!emi.amountDue.equals(d.amount)) return { error: `EMI amount must be exactly ${emi.amountDue.toFixed(2)}` };
   } else {
-    const existingBooking = await prisma.payment.findFirst({
-      where: { memberId: d.memberId, paymentType: "BOOKING", status: "VERIFIED" },
+    if (emiScheduleId) return { error: "Do not select an EMI for a cashback full payment" };
+    const cashbackMember = await prisma.member.findUnique({ where: { id: d.memberId }, include: { plot: true } });
+    if (!cashbackMember?.plot || cashbackMember.paymentPlan !== "CASHBACK") return { error: "Selected member is not on the cashback plan" };
+    const existingCashback = await prisma.payment.findFirst({
+      where: { memberId: d.memberId, paymentType: "CASHBACK_FULL", status: "VERIFIED" },
     });
-    if (existingBooking) return { error: "Booking payment is already verified" };
+    if (existingCashback) return { error: "Cashback full payment is already verified" };
+    const paid = await prisma.payment.aggregate({ where: { memberId: d.memberId, status: "VERIFIED" }, _sum: { amount: true } });
+    const remaining = cashbackMember.plot.plotPrice.minus(paid._sum.amount ?? 0);
+    if (!remaining.equals(d.amount)) return { error: `Cashback full payment must be exactly ${remaining.toFixed(2)}` };
   }
 
   const payment = await prisma.payment.create({
@@ -180,10 +192,10 @@ const plotSchema = z.object({
 });
 
 export async function createPlotAction(_prev: { error?: string } | undefined, formData: FormData) {
-  adminId();
+  await adminId();
   const parsed = plotSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const d = parsed.data;
+  const d = { ...parsed.data, plotNumber: parsed.data.plotNumber.trim().toUpperCase() };
   const exists = await prisma.plot.findUnique({ where: { plotNumber: d.plotNumber } });
   if (exists) return { error: "Plot number already exists" };
   await prisma.plot.create({
@@ -206,7 +218,7 @@ const bulkPlotSchema = z.object({
 });
 
 export async function bulkCreatePlotsAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
-  adminId();
+  await adminId();
   const parsed = bulkPlotSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -214,7 +226,7 @@ export async function bulkCreatePlotsAction(_prev: { error?: string; success?: s
     new Set(
       parsed.data.plotNumbers
         .split(/[\s,]+/)
-        .map((n) => n.trim())
+        .map((n) => n.trim().toUpperCase())
         .filter(Boolean)
     )
   );
@@ -249,10 +261,15 @@ const updatePlotSchema = plotSchema.extend({
 });
 
 export async function updatePlotAction(formData: FormData) {
-  adminId();
+  await adminId();
   const parsed = updatePlotSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  const d = parsed.data;
+  const d = { ...parsed.data, plotNumber: parsed.data.plotNumber.trim().toUpperCase() };
+
+  const current = await prisma.plot.findUnique({ where: { id: d.id }, include: { member: { select: { id: true } } } });
+  if (!current) throw new Error("Plot not found");
+  if (current.member && current.plotNumber !== d.plotNumber) throw new Error("An assigned plot number cannot be changed");
+  if (current.member && d.status === "AVAILABLE") throw new Error("An assigned plot cannot be marked available");
 
   const duplicate = await prisma.plot.findFirst({
     where: { plotNumber: d.plotNumber, NOT: { id: d.id } },
@@ -277,17 +294,21 @@ export async function updatePlotAction(formData: FormData) {
 
 async function saveAdminFile(file: FormDataEntryValue | null, folder: string) {
   if (!file || typeof file === "string" || !file.size) return undefined;
+  if (file.size > 10 * 1024 * 1024) throw new Error("Each upload must be 10 MB or smaller");
+  if (!["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Uploads must be PDF, JPG, PNG, or WebP files");
+  }
   return storage.save({ folder, filename: file.name || "upload", data: Buffer.from(await file.arrayBuffer()) });
 }
 
 export async function updatePlotDocumentsAction(formData: FormData) {
-  adminId();
+  await adminId();
   const plotId = String(formData.get("plotId") ?? "");
   const [satbaraDocUrl, mappingDocUrl, entryDocUrl, legalDocUrl] = await Promise.all([
-    saveAdminFile(formData.get("satbara"), "plot-docs"),
-    saveAdminFile(formData.get("mapping"), "plot-docs"),
-    saveAdminFile(formData.get("entry"), "plot-docs"),
-    saveAdminFile(formData.get("legal"), "plot-docs"),
+    saveAdminFile(formData.get("satbara"), `plot-docs/${plotId}`),
+    saveAdminFile(formData.get("mapping"), `plot-docs/${plotId}`),
+    saveAdminFile(formData.get("entry"), `plot-docs/${plotId}`),
+    saveAdminFile(formData.get("legal"), `plot-docs/${plotId}`),
   ]);
   await prisma.plot.update({
     where: { id: plotId },
@@ -304,7 +325,7 @@ export async function updatePlotDocumentsAction(formData: FormData) {
 export async function conductDrawAction(_prev: { error?: string; success?: string } | undefined, _formData: FormData) {
   void _prev;
   void _formData;
-  const uid = adminId();
+  const uid = await adminId();
 
   try {
     const result = await conductDraw({ conductedById: uid });
@@ -326,14 +347,14 @@ export async function conductDrawAction(_prev: { error?: string; success?: strin
 }
 
 export async function markDrawPrizeClaimedAction(winnerId: string) {
-  adminId();
+  await adminId();
   await markDrawPrizeClaimed(winnerId);
   revalidatePath("/admin/draws");
   revalidatePath("/member/draws");
 }
 
 export async function runDailyOperationsAction() {
-  adminId();
+  await adminId();
   await updateEmiStatusesAndReminders();
   await processDueCashbacks();
   await syncAllPairRewards();
@@ -349,7 +370,7 @@ const transferSchema = z.object({
 });
 
 export async function transferPlotAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
-  const uid = adminId();
+  const uid = await adminId();
   const parsed = transferSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
@@ -367,13 +388,13 @@ export async function transferPlotAction(_prev: { error?: string; success?: stri
 }
 
 export async function approveInsuranceClaimAction(claimId: string) {
-  const uid = adminId();
+  const uid = await adminId();
   await approveInsuranceClaim(claimId, uid);
   revalidatePath("/admin/operations");
 }
 
 export async function rejectInsuranceClaimAction(claimId: string) {
-  const uid = adminId();
+  const uid = await adminId();
   await prisma.insuranceClaim.update({
     where: { id: claimId },
     data: { status: "REJECTED", reviewedById: uid, reviewedAt: new Date() },
@@ -382,26 +403,50 @@ export async function rejectInsuranceClaimAction(claimId: string) {
 }
 
 export async function processDuePayoutsAction(_prev: { error?: string; success?: string } | undefined, _formData: FormData) {
-  const uid = adminId();
+  const uid = await adminId();
   try {
     const selectedIds = String(_formData.get("selectedIds") ?? "");
-    const payoutIds = selectedIds ? selectedIds.split(",").filter(Boolean) : undefined;
-    const result = await processDuePayouts({ processedById: uid, payoutIds });
+    const payoutIds = selectedIds.split(",").filter(Boolean);
+    const amountToPay = Number(_formData.get("amountToPay"));
+    const paymentMode = z.enum(["BANK_TRANSFER", "UPI", "CASH", "ONLINE"]).parse(_formData.get("paymentMode"));
+    const result = await processDuePayouts({ processedById: uid, payoutIds, amountToPay, paymentMode });
+    await prisma.auditLog.create({
+      data: {
+        actorId: uid,
+        action: "PAYOUT_RECORD",
+        entity: "Payout",
+        after: { payoutIds, amount: result.paidNow, paymentMode },
+      },
+    });
     revalidatePath("/admin/payouts");
-    if (!result.processed && !result.failed) return { success: "No selected payouts are due today. Upcoming payouts will become available on their payout date." };
-    if (result.failed) return { error: `Processed ${result.processed} payout(s); ${result.failed} payout(s) failed.` };
-    return { success: `Marked ${result.processed} payout line(s) as PAID.` };
+    return { success: `Recorded ${result.paidNow.toFixed(2)} across ${result.processed} payout line(s).` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Payout processing failed" };
   }
 }
 
 export async function updateSettingsAction(formData: FormData) {
-  const uid = adminId();
-  const entries = Array.from(formData.entries());
-  for (const [key, value] of entries) {
-    if (typeof value !== "string") continue;
-    await prisma.systemSetting.update({ where: { key }, data: { value } }).catch(() => {});
+  const uid = await adminId();
+  const updates: { key: SettingKey; value: string }[] = [];
+  for (const key of Object.keys(SETTING_META) as SettingKey[]) {
+    const raw = formData.get(key);
+    if (typeof raw !== "string") continue;
+    if (SETTING_META[key].type === "BOOLEAN") {
+      if (!["true", "false"].includes(raw)) throw new Error(`Invalid value for ${SETTING_META[key].label}`);
+    } else {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) throw new Error(`${SETTING_META[key].label} must be a non-negative number`);
+    }
+    updates.push({ key, value: raw });
+  }
+  const startDay = Number(updates.find((entry) => entry.key === "payment_window_start_day")?.value);
+  const endDay = Number(updates.find((entry) => entry.key === "payment_window_end_day")?.value);
+  if (startDay && (startDay < 1 || startDay > 31)) throw new Error("Payment window start day must be between 1 and 31");
+  if (endDay && (endDay < 1 || endDay > 31)) throw new Error("Payment window end day must be between 1 and 31");
+  if (startDay && endDay && startDay > endDay) throw new Error("Payment window start day cannot be after the end day");
+
+  for (const entry of updates) {
+    await prisma.systemSetting.update({ where: { key: entry.key }, data: { value: entry.value } });
   }
   await prisma.auditLog.create({ data: { actorId: uid, action: "UPDATE_SETTINGS", entity: "SystemSetting" } });
   revalidatePath("/admin/settings");

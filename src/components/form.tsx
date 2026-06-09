@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
+import { useActionState } from "react";
 import { Button } from "./ui";
 
 type ActionState = { error?: string; success?: string } | undefined;
@@ -34,7 +35,7 @@ export function StatefulForm({
   children: React.ReactNode;
   className?: string;
 }) {
-  const [state, formAction] = useFormState(action, undefined);
+  const [state, formAction] = useActionState(action, undefined);
   return (
     <form action={formAction} className={className}>
       {state?.error && (

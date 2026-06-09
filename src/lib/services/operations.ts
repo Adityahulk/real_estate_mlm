@@ -65,7 +65,7 @@ export async function updateEmiStatusesAndReminders() {
             type: "EMI_REMINDER",
             title: "EMI reminder",
             message: `EMI #${emi.installmentNo} is due in ${days} day(s).`,
-            channel: "WHATSAPP",
+            channel: "IN_APP",
             status: "PENDING",
           },
         });

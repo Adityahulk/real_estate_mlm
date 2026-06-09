@@ -56,7 +56,7 @@ export default async function MemberDashboard() {
             <Row k="Plot Number" v={me.plot?.plotNumber ?? "—"} />
             <Row k="Size" v={me.plot?.plotSize ?? "—"} />
             <Row k="Price" v={me.plot ? formatINR(me.plot.plotPrice) : "—"} />
-            <Row k="Location" v={`${me.plot?.locationBlock ?? "-"} · Row ${me.plot?.rowNumber ?? "-"}`} />
+            <Row k="Location" v={me.plot?.locationBlock ?? "—"} />
             <Row k="Status" v={<Badge tone="brand">{me.plot?.status}</Badge>} />
           </CardContent>
         </Card>

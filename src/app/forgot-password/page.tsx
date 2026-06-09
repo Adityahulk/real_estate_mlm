@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useFormState } from "react-dom";
-import { useState } from "react";
+import { useFormStatus } from "react-dom";
+import { useActionState, useState } from "react";
 import { requestPasswordResetAction, resetPasswordAction } from "@/server/auth-actions";
 import { SubmitButton } from "@/components/form";
 import { Card, Field, Input } from "@/components/ui";
@@ -11,7 +11,7 @@ import { AuthShell } from "@/components/auth-shell";
 export default function ForgotPasswordPage() {
   const [resetEmail, setResetEmail] = useState("");
 
-  const [reqState, reqAction] = useFormState(
+  const [reqState, reqAction] = useActionState(
     async (_prev: unknown, formData: FormData) => {
       const result = await requestPasswordResetAction(undefined, formData);
       if (result?.success) setResetEmail(String(formData.get("email") ?? "").toLowerCase().trim());
@@ -20,14 +20,12 @@ export default function ForgotPasswordPage() {
     undefined
   );
 
-  const [resetState, resetAction] = useFormState(
+  const [resetState, resetAction] = useActionState(
     async (_prev: unknown, formData: FormData) => {
       return await resetPasswordAction(undefined, formData);
     },
     undefined
   );
-
-  const reqPending = false;
 
   const resetDone = resetState?.success && !resetState.error;
 
@@ -47,13 +45,7 @@ export default function ForgotPasswordPage() {
             <Field label="Registered Email">
               <Input name="email" type="email" autoComplete="email" placeholder="you@email.com" required />
             </Field>
-            <button
-              type="submit"
-              disabled={reqPending}
-              className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:brightness-105 disabled:opacity-50"
-            >
-              {reqPending ? "Sending…" : "Send OTP"}
-            </button>
+            <SendOtpButton />
             {reqState?.error && <p className="text-sm text-destructive">{reqState.error}</p>}
             {reqState?.success && <p className="text-sm text-green-700">{reqState.success}</p>}
           </form>
@@ -103,5 +95,19 @@ export default function ForgotPasswordPage() {
         </Card>
       </div>
     </AuthShell>
+  );
+}
+
+function SendOtpButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      aria-busy={pending}
+      className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:brightness-105 disabled:opacity-50"
+    >
+      {pending ? "Sending..." : "Send OTP"}
+    </button>
   );
 }

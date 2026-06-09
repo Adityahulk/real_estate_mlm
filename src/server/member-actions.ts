@@ -5,12 +5,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getMemberSession } from "@/lib/auth";
 import { encryptPII, last4 } from "@/lib/crypto";
-import { storage, paymentGateway } from "@/lib/integrations";
-import { confirmPayment } from "@/lib/services/payments";
-import { Prisma } from "@prisma/client";
+import { storage } from "@/lib/integrations";
 
-function memberId(): string {
-  const s = getMemberSession();
+async function memberId(): Promise<string> {
+  const s = await getMemberSession();
   if (!s) throw new Error("Not authenticated");
   return s.sub;
 }
@@ -19,6 +17,10 @@ async function saveFile(file: FormDataEntryValue | null, folder: string): Promis
   if (!file || typeof file === "string") return undefined;
   const f = file as File;
   if (!f.size) return undefined;
+  if (f.size > 10 * 1024 * 1024) throw new Error("Each upload must be 10 MB or smaller");
+  if (!["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+    throw new Error("Uploads must be PDF, JPG, PNG, or WebP files");
+  }
   const buf = Buffer.from(await f.arrayBuffer());
   return storage.save({ folder, filename: f.name || "upload", data: buf });
 }
@@ -35,16 +37,16 @@ const kycSchema = z.object({
 });
 
 export async function submitKycAction(_prev: { error?: string } | undefined, formData: FormData) {
-  const id = memberId();
+  const id = await memberId();
   const parsed = kycSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
   const [aadhaarFrontUrl, aadhaarBackUrl, panCardUrl, profilePhotoUrl] = await Promise.all([
-    saveFile(formData.get("aadhaarFront"), "kyc"),
-    saveFile(formData.get("aadhaarBack"), "kyc"),
-    saveFile(formData.get("panCard"), "kyc"),
-    saveFile(formData.get("profilePhoto"), "kyc"),
+    saveFile(formData.get("aadhaarFront"), `kyc/${id}`),
+    saveFile(formData.get("aadhaarBack"), `kyc/${id}`),
+    saveFile(formData.get("panCard"), `kyc/${id}`),
+    saveFile(formData.get("profilePhoto"), `kyc/${id}`),
   ]);
 
   await prisma.memberKyc.upsert({
@@ -89,68 +91,13 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
   return { error: undefined };
 }
 
-// Member pays an EMI (or booking) online. KYC is not required for member-to-admin
-// payments; it is only required before commission payouts are released.
-export async function payOnlineAction(formData: FormData) {
-  const id = memberId();
-  const emiScheduleId = (formData.get("emiScheduleId") as string) || null;
-  const member = await prisma.member.findUniqueOrThrow({ where: { id }, include: { plot: true } });
-  if (!member.isActive) throw new Error("Account must be approved by admin before payment");
-
-  let amount: Prisma.Decimal;
-  let paymentType: "BOOKING" | "EMI" | "CASHBACK_FULL";
-  if (emiScheduleId) {
-    const emi = await prisma.emiSchedule.findUniqueOrThrow({ where: { id: emiScheduleId } });
-    if (emi.status === "PAID") throw new Error("This installment is already paid");
-    amount = emi.amountDue;
-    paymentType = "EMI";
-  } else if (member.paymentPlan === "CASHBACK") {
-    const alreadyPaid = await prisma.payment.findFirst({
-      where: { memberId: id, paymentType: "CASHBACK_FULL", status: "VERIFIED" },
-    });
-    if (alreadyPaid) throw new Error("Cashback plan full payment is already paid");
-    const verified = await prisma.payment.aggregate({
-      where: { memberId: id, status: "VERIFIED" },
-      _sum: { amount: true },
-    });
-    amount = member.plot!.plotPrice.minus(verified._sum.amount ?? 0);
-    paymentType = "CASHBACK_FULL";
-  } else {
-    // booking payment
-    const alreadyBooked = await prisma.payment.findFirst({
-      where: { memberId: id, paymentType: "BOOKING", status: "VERIFIED" },
-    });
-    if (alreadyBooked) throw new Error("Booking already paid");
-    const bookingSetting = await prisma.systemSetting.findUnique({ where: { key: "booking_amount" } });
-    amount = new Prisma.Decimal(bookingSetting?.value ?? "10000");
-    paymentType = "BOOKING";
-  }
-
-  const order = await paymentGateway.createOrder({ amount: amount.toNumber(), memberId: id, emiScheduleId: emiScheduleId ?? undefined });
-  const payment = await prisma.payment.create({
-    data: {
-      memberId: id,
-      emiScheduleId,
-      paymentType,
-      amount,
-      paymentMode: "ONLINE",
-      gatewayTxnId: order.gatewayTxnId,
-      status: "PENDING",
-    },
-  });
-  // Stub gateway confirms immediately.
-  await confirmPayment(payment.id);
-  revalidatePath("/member/payments");
-  revalidatePath("/member");
-}
-
 const insuranceSchema = z.object({
   deathDate: z.string().min(1),
   deathType: z.string().min(1),
 });
 
 export async function submitInsuranceClaimAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
-  const id = memberId();
+  const id = await memberId();
   const parsed = insuranceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const member = await prisma.member.findUniqueOrThrow({ where: { id }, include: { kyc: true } });
@@ -158,7 +105,7 @@ export async function submitInsuranceClaimAction(_prev: { error?: string; succes
     return { error: "Complete nominee KYC details before submitting an insurance claim" };
   }
   const monthsPaid = await prisma.emiSchedule.count({ where: { memberId: id, status: "PAID" } });
-  const deathCertificateUrl = await saveFile(formData.get("deathCertificate"), "insurance");
+  const deathCertificateUrl = await saveFile(formData.get("deathCertificate"), `insurance/${id}`);
   await prisma.insuranceClaim.create({
     data: {
       memberId: id,
