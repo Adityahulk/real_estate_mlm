@@ -120,7 +120,7 @@ export async function transferMemberPlot(args: {
         memberId: member.id,
         previousFullName: member.fullName,
         previousMobile: member.mobile,
-        previousEmail: member.email,
+        previousEmail: member.email ?? "",
         newFullName: args.newFullName,
         newMobile: args.newMobile,
         newEmail: args.newEmail,

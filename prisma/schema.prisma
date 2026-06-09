@@ -239,7 +239,7 @@ model Member {
   aadhaarLast4         String?
   mobile               String              @unique
   whatsapp             String?
-  email                String              @unique
+  email                String?             @unique
   passwordHash         String
   sponsorId            String?
   sponsor              Member?             @relation("Sponsor", fields: [sponsorId], references: [id])
@@ -288,7 +288,7 @@ model MemberApplication {
   aadhaarLast4          String?
   mobile                String                  @unique
   whatsapp              String?
-  email                 String                  @unique
+  email                 String?                 @unique
   passwordHash          String
   nomineeName           String?
   nomineeRelation       String?

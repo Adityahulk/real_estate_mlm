@@ -7,7 +7,7 @@ import { AuthShell } from "@/components/auth-shell";
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { ref } = await searchParams;
   return (
-    <AuthShell wide eyebrow="Free Member Application" title="Register Free" description="Register without payment or KYC. Your ID enters the binary structure only after admin approval.">
+    <AuthShell wide eyebrow="Free Member Registration" title="Register Free" description="Log in immediately with your mobile number. Your ID enters the paid binary structure after admin activates your selected plot.">
         <StatefulForm action={registerAction}>
           <Field label="Full Name">
             <Input name="fullName" placeholder="Full name" />
@@ -16,17 +16,17 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
             <Field label="Mobile Number">
               <Input name="mobile" inputMode="numeric" placeholder="10-digit" />
             </Field>
-            <Field label="Email">
+            <Field label="Email (optional)">
               <Input name="email" type="email" placeholder="you@email.com" />
             </Field>
           </div>
           <Field label="Password">
             <Input name="password" type="password" placeholder="At least 6 characters" />
           </Field>
-          <Field label="Sponsor ID (optional)">
-            <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Paid member ID or FREE- ID" />
+          <Field label="Sponsor ID">
+            <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Sponsor member ID or COMPANY" />
           </Field>
-          <div className="mt-2 text-sm font-semibold">Nominee Details</div>
+          <div className="mt-2 text-sm font-semibold">Nominee Details (optional)</div>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Nominee Name"><Input name="nomineeName" /></Field>
             <Field label="Relation"><Input name="nomineeRelation" /></Field>

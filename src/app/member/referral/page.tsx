@@ -15,7 +15,7 @@ export default async function ReferralPage() {
   const qr = await QRCode.toDataURL(link, { width: 240, margin: 1 });
 
   const referrals = await prisma.member.findMany({
-    where: { sponsorId: me.id },
+    where: { sponsorId: me.id, plotId: { not: null } },
     select: { memberId: true, fullName: true, joinDate: true, kycStatus: true },
     orderBy: { joinDate: "desc" },
   });
@@ -35,7 +35,7 @@ export default async function ReferralPage() {
           <div className="w-full">
             <p className="text-sm text-muted-foreground">Share this link. Anyone who joins through it becomes your direct referral and earns you Direct Sponsor income.</p>
             <div className="mt-3"><CopyField value={link} /></div>
-            <p className="mt-2 text-xs text-muted-foreground">Free registrations from this link are shown below, but they enter your referral count and the tree only after admin collects payment and approves them.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Free members can log in and refer others immediately. They enter your paid referral count and binary tree after admin activates their plot.</p>
           </div>
         </CardContent>
       </Card>
@@ -45,7 +45,7 @@ export default async function ReferralPage() {
         <CardContent className="space-y-1 text-sm">
           {applications.map((application) => (
             <div key={application.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>{application.applicationCode} · {application.fullName}</span>
+              <span>{application.mobile} · {application.fullName}</span>
               <span className="text-muted-foreground">{application.createdAt.toISOString().slice(0, 10)}</span>
             </div>
           ))}

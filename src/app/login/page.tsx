@@ -6,7 +6,7 @@ import { AuthShell } from "@/components/auth-shell";
 
 export default function LoginPage() {
   return (
-    <AuthShell eyebrow="Member & Admin Portal" title="Welcome Back" description="Members can log in with mobile or email. Admins can log in with email.">
+    <AuthShell eyebrow="Member & Admin Portal" title="Welcome Back" description="Members can log in with mobile number or email. Admins can log in with email.">
         <StatefulForm action={loginAction}>
           <Field label="Mobile Number or Email">
             <Input name="loginId" autoComplete="username" placeholder="Mobile number or email" />
@@ -22,7 +22,7 @@ export default function LoginPage() {
             Create an account
           </Link>
         </p>
-        <p className="mt-2 text-center text-sm"><Link href="/forgot-password" className="text-brand underline">Forgot password?</Link></p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Forgot your password? Contact admin to set a new password.</p>
     </AuthShell>
   );
 }

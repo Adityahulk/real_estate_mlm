@@ -1,12 +1,10 @@
 import { prisma } from "../db";
 import { hashPassword } from "../password";
-import { encryptPII, last4 } from "../crypto";
 import { findBfsPlacement, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
 import { visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
 import { Prisma } from "@prisma/client";
-import crypto from "crypto";
 
 export const COMPANY_ROOT_MEMBER_ID = "COMPANY";
 
@@ -15,7 +13,7 @@ export interface RegisterInput {
   aadhaarNumber?: string;
   mobile: string;
   whatsapp?: string;
-  email: string;
+  email?: string;
   password: string;
   nomineeName?: string;
   nomineeRelation?: string;
@@ -26,49 +24,66 @@ export interface RegisterInput {
 }
 
 export async function createMemberApplication(input: RegisterInput) {
-  let sponsor: { id: string; isActive: boolean } | null = null;
-  let referrerApplication: { id: string; status: "PENDING" | "APPROVED" | "REJECTED" } | null = null;
-  if (input.sponsorMemberId) {
-    const referralId = input.sponsorMemberId.trim().toUpperCase();
-    sponsor = await prisma.member.findUnique({
-      where: { memberId: referralId },
-      select: { id: true, isActive: true },
-    });
-    if (!sponsor) {
-      referrerApplication = await prisma.memberApplication.findUnique({
-        where: { applicationCode: referralId },
-        select: { id: true, status: true },
-      });
-    }
-    if (sponsor && !sponsor.isActive) throw new Error("Referrer member is not active");
-    if (referrerApplication?.status === "REJECTED") throw new Error("Referrer free ID is rejected");
-    if (!sponsor && !referrerApplication) throw new Error("Invalid sponsor or referral ID");
-  }
+  const referralId = input.sponsorMemberId?.trim().toUpperCase();
+  if (!referralId) throw new Error("Sponsor ID is required");
+  const sponsor = await prisma.member.findUnique({
+    where: { memberId: referralId },
+    select: { id: true, isActive: true },
+  });
+  if (!sponsor?.isActive) throw new Error("Invalid sponsor ID");
 
+  const email = input.email?.trim().toLowerCase() || undefined;
+  const memberConditions = [{ mobile: input.mobile }, ...(email ? [{ email }] : [])];
+  const applicationConditions = [{ mobile: input.mobile }, ...(email ? [{ email }] : [])];
   const [existingMember, existingApplication] = await Promise.all([
-    prisma.member.findFirst({ where: { OR: [{ mobile: input.mobile }, { email: input.email }] } }),
-    prisma.memberApplication.findFirst({ where: { OR: [{ mobile: input.mobile }, { email: input.email }] } }),
+    prisma.member.findFirst({ where: { OR: memberConditions } }),
+    prisma.memberApplication.findFirst({ where: { OR: applicationConditions } }),
   ]);
   if (existingMember) throw new Error("A member with this mobile or email already exists");
   if (existingApplication) throw new Error("An application with this mobile or email already exists");
 
-  return prisma.memberApplication.create({
-    data: {
-      fullName: input.fullName,
-      aadhaarNumber: encryptPII(input.aadhaarNumber),
-      aadhaarLast4: last4(input.aadhaarNumber),
-      mobile: input.mobile,
-      whatsapp: input.whatsapp ?? input.mobile,
-      email: input.email,
-      passwordHash: await hashPassword(input.password),
-      nomineeName: input.nomineeName,
-      nomineeRelation: input.nomineeRelation,
-      nomineePhone: input.nomineePhone,
-      applicationCode: await generateApplicationCode(),
-      sponsorId: sponsor?.id,
-      referrerApplicationId: referrerApplication?.id,
-      paymentPlan: input.paymentPlan ?? "INSTALLMENT",
-    },
+  const passwordHash = await hashPassword(input.password);
+  return prisma.$transaction(async (tx) => {
+    const member = await tx.member.create({
+      data: {
+        memberId: input.mobile,
+        fullName: input.fullName,
+        mobile: input.mobile,
+        whatsapp: input.whatsapp ?? input.mobile,
+        email,
+        passwordHash,
+        sponsorId: sponsor.id,
+        paymentPlan: input.paymentPlan ?? "INSTALLMENT",
+        isActive: true,
+      },
+    });
+    if (input.nomineeName || input.nomineeRelation || input.nomineePhone) {
+      await tx.memberKyc.create({
+        data: {
+          memberId: member.id,
+          nomineeName: input.nomineeName,
+          nomineeRelation: input.nomineeRelation,
+          nomineePhone: input.nomineePhone,
+          status: "NOT_STARTED",
+        },
+      });
+    }
+    const application = await tx.memberApplication.create({
+      data: {
+        fullName: input.fullName,
+        mobile: input.mobile,
+        whatsapp: input.whatsapp ?? input.mobile,
+        email,
+        passwordHash,
+        nomineeName: input.nomineeName,
+        nomineeRelation: input.nomineeRelation,
+        nomineePhone: input.nomineePhone,
+        applicationCode: input.mobile,
+        sponsorId: sponsor.id,
+        paymentPlan: input.paymentPlan ?? "INSTALLMENT",
+      },
+    });
+    return { ...application, memberId: member.memberId };
   });
 }
 
@@ -82,76 +97,51 @@ export async function approveMemberApplication(args: {
   const minRef = await getNumberSetting("bronze_min_referrals");
 
   return prisma.$transaction(async (tx) => {
-    const application = await tx.memberApplication.findUnique({
-      where: { id: args.applicationId },
-      include: { referrerApplication: { select: { email: true, status: true } } },
-    });
+    const application = await tx.memberApplication.findUnique({ where: { id: args.applicationId } });
     if (!application || application.status !== "PENDING") throw new Error("Pending application not found");
 
-    const duplicate = await tx.member.findFirst({
-      where: { OR: [{ mobile: application.mobile }, { email: application.email }] },
+    const existingMember = await tx.member.findUnique({ where: { mobile: application.mobile } }) ?? await tx.member.create({
+      data: {
+        memberId: application.mobile,
+        fullName: application.fullName,
+        mobile: application.mobile,
+        whatsapp: application.whatsapp,
+        email: application.email,
+        passwordHash: application.passwordHash,
+        sponsorId: application.sponsorId,
+        paymentPlan: application.paymentPlan,
+        isActive: true,
+      },
     });
-    if (duplicate) throw new Error("A member with this mobile or email already exists");
+    if (existingMember.plotId) throw new Error("This member already has a plot");
 
     const plot = await tx.plot.findUnique({ where: { plotNumber: args.plotNumber.trim().toUpperCase() } });
     if (!plot) throw new Error("Selected plot number does not exist in inventory");
     if (plot.status !== "AVAILABLE") throw new Error("Selected plot is not available");
 
     const nodes = await tx.member.findMany({
-      where: { NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
+      where: { plotId: { not: null }, NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
       select: { id: true, treeParentId: true, treeSide: true },
       orderBy: { joinDate: "asc" },
     });
     const placement = nodes.length ? findBfsPlacement(nodes as TreeNode[], nodes[0].id) : null;
 
-    let resolvedSponsorId = application.sponsorId;
-    if (!resolvedSponsorId && application.referrerApplication) {
-      const referrerMember = await tx.member.findUnique({
-        where: { email: application.referrerApplication.email },
-        select: { id: true },
-      });
-      if (!referrerMember) throw new Error("The referring free ID must be approved before this application");
-      resolvedSponsorId = referrerMember.id;
-    }
-
-    const member = await tx.member.create({
+    const member = await tx.member.update({
+      where: { id: existingMember.id },
       data: {
         memberId: plot.plotNumber,
         plotId: plot.id,
-        fullName: application.fullName,
-        aadhaarNumber: application.aadhaarNumber,
-        aadhaarLast4: application.aadhaarLast4,
-        mobile: application.mobile,
-        whatsapp: application.whatsapp,
-        email: application.email,
-        passwordHash: application.passwordHash,
-        sponsorId: resolvedSponsorId,
         treeParentId: placement?.parentId,
         treeSide: placement?.side as Side | undefined,
         treeLevel: placement?.level ?? 0,
-        paymentPlan: application.paymentPlan,
-        kycStatus: "NOT_STARTED",
-        isActive: true,
       },
     });
-
-    if (application.nomineeName && application.nomineeRelation && application.nomineePhone) {
-      await tx.memberKyc.create({
-        data: {
-          memberId: member.id,
-          nomineeName: application.nomineeName,
-          nomineeRelation: application.nomineeRelation,
-          nomineePhone: application.nomineePhone,
-          status: "NOT_STARTED",
-        },
-      });
-    }
 
     await tx.plot.update({ where: { id: plot.id }, data: { status: "BOOKED" } });
 
     if (placement) {
       const allForChain = await tx.member.findMany({
-        where: { NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
+        where: { plotId: { not: null }, NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
         select: { id: true, treeParentId: true, treeSide: true },
       });
       const parentOf = new Map(
@@ -174,9 +164,9 @@ export async function approveMemberApplication(args: {
       }
     }
 
-    if (resolvedSponsorId) {
+    if (member.sponsorId) {
       const sponsor = await tx.member.update({
-        where: { id: resolvedSponsorId },
+        where: { id: member.sponsorId },
         data: { directReferralCount: { increment: 1 } },
       });
       await syncMemberRankTx(tx, sponsor.id, minRef);
@@ -204,15 +194,6 @@ export async function approveMemberApplication(args: {
 
     return { member, payment };
   });
-}
-
-async function generateApplicationCode(): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const code = `FREE-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-    const exists = await prisma.memberApplication.findUnique({ where: { applicationCode: code }, select: { id: true } });
-    if (!exists) return code;
-  }
-  throw new Error("Could not generate a free registration ID");
 }
 
 async function syncMemberRankTx(tx: Prisma.TransactionClient, memberId: string, bronzeMinReferrals: number) {

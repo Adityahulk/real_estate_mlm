@@ -26,7 +26,7 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   const [admin, root] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.sub }, select: { isActive: true } }),
     prisma.member.findFirst({
-      where: { NOT: { memberId: "COMPANY" } },
+      where: { plotId: { not: null }, NOT: { memberId: "COMPANY" } },
       select: { leftTeamCount: true, rightTeamCount: true, rank: true },
       orderBy: { joinDate: "asc" },
     }),

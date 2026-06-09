@@ -52,6 +52,19 @@ async function main() {
     });
   }
 
+  // 4. Non-customer system sponsor, used only to bootstrap the first real member.
+  await prisma.member.upsert({
+    where: { memberId: "COMPANY" },
+    create: {
+      memberId: "COMPANY",
+      fullName: "Shree Shyam Group",
+      mobile: "0000000000",
+      passwordHash: await bcrypt.hash(`system-${Date.now()}-${Math.random()}`, 10),
+      isActive: true,
+    },
+    update: {},
+  });
+
   console.log(`Seed complete. No demo members or plots created.${existingAdmin ? " Existing admin preserved." : " Initial admin created."}`);
 }
 

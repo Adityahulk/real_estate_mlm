@@ -4,6 +4,7 @@ import { ArrowRight, BadgeIndianRupee, Building2, Car, Gift, Medal, MapPin, Shie
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui";
 import { PROJECT } from "@/lib/project";
+import { HomeCarousel } from "@/components/home-carousel";
 
 const reasons = [
   { icon: MapPin, title: "Prime Location", text: "Strategically located near the growing Panoli Industrial–Kosamba corridor." },
@@ -26,20 +27,18 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="relative min-h-[690px] overflow-hidden bg-white">
-        <Image src="/proposal/cover.png" alt="Shree Shyam Villa 2 residential project" fill priority className="object-cover object-center" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-white/10" />
-        <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto flex max-w-6xl flex-col items-start gap-5 px-6 pb-12 text-white">
-            <div className="max-w-xl border-l-4 border-brand pl-4">
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">Panoli Industrial · Kosamba</div>
-              <h1 className="mt-2 text-3xl font-black uppercase sm:text-5xl">Building Trust, Creating Futures</h1>
-              <p className="mt-3 text-sm leading-relaxed text-white/80 sm:text-base">Own a premium {PROJECT.plotAreaSqFt} sq.ft. plot at {PROJECT.siteName} with flexible payments, transparent income, rewards, and family protection.</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/register"><Button size="lg">Become a Member <ArrowRight className="h-4 w-4" /></Button></Link>
-              <Link href="/login"><Button size="lg" variant="outline" className="border-white bg-white/10 text-white hover:bg-white/20">Login</Button></Link>
-            </div>
+      <HomeCarousel />
+
+      <section className="bg-white py-10">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 px-6 sm:flex-row sm:items-center">
+          <div className="max-w-2xl">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand">Panoli Industrial · Kosamba</div>
+            <h1 className="mt-2 text-3xl font-black uppercase sm:text-5xl">Building Trust, Creating Futures</h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">Own a premium {PROJECT.plotAreaSqFt} sq.ft. plot at {PROJECT.siteName} with flexible payments, transparent income, rewards, and family protection.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/register"><Button size="lg">Become a Member <ArrowRight className="h-4 w-4" /></Button></Link>
+            <Link href="/login"><Button size="lg" variant="outline">Login</Button></Link>
           </div>
         </div>
       </section>

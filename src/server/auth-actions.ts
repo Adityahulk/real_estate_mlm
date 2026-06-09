@@ -16,12 +16,12 @@ export type ActionState = { error?: string; success?: string } | undefined;
 const registerSchema = z.object({
   fullName: z.string().min(2, "Enter full name"),
   mobile: z.string().regex(/^\d{10}$/, "Mobile must be 10 digits"),
-  email: z.string().email("Invalid email"),
+  email: z.string().optional().transform((value) => value?.trim() || undefined).pipe(z.string().email("Invalid email").optional()),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  sponsorMemberId: z.string().optional(),
-  nomineeName: z.string().min(2, "Enter nominee name"),
-  nomineeRelation: z.string().min(2, "Enter nominee relation"),
-  nomineePhone: z.string().regex(/^\d{10}$/, "Nominee mobile must be 10 digits"),
+  sponsorMemberId: z.string().trim().min(1, "Sponsor ID is required"),
+  nomineeName: z.string().optional(),
+  nomineeRelation: z.string().optional(),
+  nomineePhone: z.string().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
 });
 
 export async function registerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -32,15 +32,15 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   try {
     const application = await createMemberApplication({
       ...parsed.data,
-      sponsorMemberId: parsed.data.sponsorMemberId?.trim() || undefined,
+      sponsorMemberId: parsed.data.sponsorMemberId,
     });
     const requestHeaders = await headers();
     const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
     const protocol = requestHeaders.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
     const base = (host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_BASE_URL || "https://shreeshyam.group").replace(/\/$/, "");
-    const referralLink = `${base}/register?ref=${application.applicationCode}`;
+    const referralLink = `${base}/register?ref=${application.memberId}`;
     return {
-      success: `Your application is submitted with Free ID: ${application.applicationCode}. Referral link: ${referralLink}. Contact the admin for approval.`,
+      success: `Registration complete. Your member ID is ${application.memberId}. You can log in now and share your referral link: ${referralLink}. Contact admin for plot activation.`,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Registration failed" };
@@ -76,9 +76,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (!member || !(await verifyPassword(parsed.data.password, member.passwordHash))) {
     return { error: "Invalid mobile/email or password" };
   }
-  if (!member.isActive) {
-    return { error: "Your account is pending admin approval after booking payment verification." };
-  }
+  if (!member.isActive) return { error: "Your account is disabled. Contact admin." };
   await setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));
   redirect("/member");
 }

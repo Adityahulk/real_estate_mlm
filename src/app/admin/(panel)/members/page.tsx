@@ -2,44 +2,16 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Select, Stat } from "@/components/ui";
 import { downlineTree } from "@/lib/services/queries";
+import { BinaryTree } from "@/components/binary-tree";
+import { resetMemberPasswordAction } from "@/server/admin-actions";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
 const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "warning" } as const;
-type TreeNode = Awaited<ReturnType<typeof downlineTree>>;
-
-function MemberTreeNode({ node }: { node: TreeNode }) {
-  if (!node) return <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">empty</div>;
-  const color =
-    node.rank === "GOLD"
-      ? "border-warning bg-warning/10"
-      : node.rank === "SILVER"
-        ? "border-success bg-success/10"
-        : node.rank === "BRONZE"
-          ? "border-brand bg-brand/10"
-          : "border-border bg-card";
-  return (
-    <div className="flex flex-col items-center">
-      <div className={`min-w-32 rounded-md border px-3 py-2 text-center ${color}`}>
-        <div className="text-sm font-black">{node.memberId}</div>
-        <div className="max-w-32 truncate text-xs text-muted-foreground">{node.fullName}</div>
-        {node.rank !== "NONE" && <div className="mt-1 text-[10px] font-bold text-brand">{node.rank}</div>}
-        <div className="text-[10px] text-muted-foreground">Matrix L {node.leftTeamCount} · R {node.rightTeamCount}</div>
-      </div>
-      {(node.left || node.right) && (
-        <div className="mt-4 flex gap-4">
-          <MemberTreeNode node={node.left as TreeNode} />
-          <MemberTreeNode node={node.right as TreeNode} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string; view?: string; root?: string; depth?: string }> }) {
   const params = await searchParams;
   const view = params.view ?? "tree";
   const q = params.q?.trim();
-  const depth = Math.min(Math.max(Number(params.depth ?? 4), 1), 7);
+  const depth = Math.min(Math.max(Number(params.depth ?? 7), 1), 7);
 
   if (view === "list") {
     const members = await prisma.member.findMany({
@@ -83,6 +55,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                 <th className="px-4 py-2">Rank</th>
                 <th className="px-4 py-2">Matrix L / R</th>
                 <th className="px-4 py-2">Directs</th>
+                <th className="px-4 py-2">Set Password</th>
               </tr>
             </thead>
             <tbody>
@@ -97,6 +70,13 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                   <td className="px-4 py-2"><Badge tone={rankTone[m.rank]}>{m.rank}</Badge></td>
                   <td className="px-4 py-2">{m.leftTeamCount} / {m.rightTeamCount}</td>
                   <td className="px-4 py-2">{m.directReferralCount}</td>
+                  <td className="px-4 py-2">
+                    <form action={resetMemberPasswordAction} className="flex min-w-56 gap-2">
+                      <input type="hidden" name="memberId" value={m.id} />
+                      <Input name="password" type="password" minLength={6} placeholder="New password" />
+                      <Button type="submit" size="sm">Set</Button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -107,8 +87,8 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   }
 
   const root = params.root
-    ? await prisma.member.findFirst({ where: { memberId: { equals: params.root, mode: "insensitive" }, NOT: { memberId: "COMPANY" } } })
-    : await prisma.member.findFirst({ where: { NOT: { memberId: "COMPANY" } }, orderBy: { joinDate: "asc" } });
+    ? await prisma.member.findFirst({ where: { memberId: { equals: params.root, mode: "insensitive" }, plotId: { not: null }, NOT: { memberId: "COMPANY" } } })
+    : await prisma.member.findFirst({ where: { plotId: { not: null }, NOT: { memberId: "COMPANY" } }, orderBy: { joinDate: "asc" } });
   const tree = root ? await downlineTree(root.id, depth) : undefined;
 
   return (
@@ -141,7 +121,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <div className="flex min-w-max justify-center py-4">
-            {tree ? <MemberTreeNode node={tree} /> : <div className="text-sm text-muted-foreground">No members found.</div>}
+            <BinaryTree node={tree} maxDepth={depth} />
           </div>
         </CardContent>
       </Card>

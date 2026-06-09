@@ -4,20 +4,32 @@ import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
 import { eligibleDrawMembers } from "@/lib/services/draws";
+import { BinaryTree } from "@/components/binary-tree";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
 const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "warning" } as const;
 
 export default async function MemberDashboard() {
   const me = await currentMember();
-  const [d, eligiblePool, tree] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers(), downlineTree(me.id, 2)]);
+  const [d, eligiblePool, tree] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers(), me.plotId ? downlineTree(me.id, 2) : undefined]);
   const isDrawEligibleNow = eligiblePool.some((member) => member.id === me.id);
 
   return (
     <div className="space-y-5">
-      <PageHeading eyebrow={`Member ID ${me.memberId}`} title={`Welcome, ${me.fullName.split(" ")[0]}`} description={`Plot owner since ${me.joinDate.toISOString().slice(0, 10)}`} />
+      <PageHeading
+        eyebrow={`Member ID ${me.memberId}`}
+        title={`Welcome, ${me.fullName.split(" ")[0]}`}
+        description={me.plotId ? `Paid member since ${me.joinDate.toISOString().slice(0, 10)}` : "Free member account · Contact admin for plot activation"}
+      />
 
-      {me.kycStatus !== "APPROVED" && (
+      {!me.plotId && (
+        <Card className="border-brand/40 bg-brand/5 p-4">
+          <div className="font-medium">Your free member account is active</div>
+          <div className="text-sm text-muted-foreground">You can log in and refer others now. Your mobile number is your member ID until admin collects payment, assigns your chosen plot, and places you in the paid binary tree.</div>
+        </Card>
+      )}
+
+      {d.income.onHold > 0 && me.kycStatus !== "APPROVED" && (
         <Card className="border-warning/40 bg-warning/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -57,7 +69,7 @@ export default async function MemberDashboard() {
             <Row k="Size" v={me.plot?.plotSize ?? "—"} />
             <Row k="Price" v={me.plot ? formatINR(me.plot.plotPrice) : "—"} />
             <Row k="Location" v={me.plot?.locationBlock ?? "—"} />
-            <Row k="Status" v={<Badge tone="brand">{me.plot?.status}</Badge>} />
+            <Row k="Status" v={<Badge tone={me.plot ? "brand" : "neutral"}>{me.plot?.status ?? "AWAITING ACTIVATION"}</Badge>} />
           </CardContent>
         </Card>
 
@@ -81,30 +93,9 @@ export default async function MemberDashboard() {
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <div className="flex min-w-max justify-center py-2"><DashboardTreeNode node={tree} /></div>
+          <div className="flex min-w-max justify-center py-2"><BinaryTree node={tree} maxDepth={2} /></div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-type DashboardNode = Awaited<ReturnType<typeof downlineTree>>;
-
-function DashboardTreeNode({ node }: { node: DashboardNode }) {
-  if (!node) return <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">Empty</div>;
-  return (
-    <div className="flex flex-col items-center">
-      <div className="rounded-lg border border-success/40 bg-success/5 px-3 py-2 text-center">
-        <div className="text-sm font-semibold">{node.memberId}</div>
-        <div className="max-w-28 truncate text-xs text-muted-foreground">{node.fullName}</div>
-        <div className="text-[10px] text-muted-foreground">L {node.leftTeamCount} · R {node.rightTeamCount}</div>
-      </div>
-      {(node.left || node.right) && (
-        <div className="mt-3 flex gap-4">
-          <DashboardTreeNode node={node.left as DashboardNode} />
-          <DashboardTreeNode node={node.right as DashboardNode} />
-        </div>
-      )}
     </div>
   );
 }

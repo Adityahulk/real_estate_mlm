@@ -122,6 +122,22 @@ export async function rejectApplicationAction(applicationId: string) {
   revalidatePath("/admin");
 }
 
+export async function resetMemberPasswordAction(formData: FormData) {
+  const uid = await adminId();
+  const memberId = String(formData.get("memberId") ?? "");
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 6) throw new Error("Password must be at least 6 characters");
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { memberId: true } });
+  if (!member) throw new Error("Member not found");
+  await prisma.$transaction([
+    prisma.member.update({ where: { id: memberId }, data: { passwordHash: await hashPassword(password) } }),
+    prisma.auditLog.create({
+      data: { actorId: uid, action: "MEMBER_PASSWORD_RESET", entity: "Member", entityId: memberId, after: { memberId: member.memberId } },
+    }),
+  ]);
+  revalidatePath("/admin/members");
+}
+
 const offlineSchema = z.object({
   memberId: z.string().min(1),
   paymentType: z.enum(["EMI", "CASHBACK_FULL"]),

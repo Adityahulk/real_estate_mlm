@@ -111,6 +111,7 @@ export async function adminOverview() {
 // Builds a downline tree (BFS) up to `depth` levels for visualization.
 export async function downlineTree(rootMemberId: string, depth = 3) {
   const all = await prisma.member.findMany({
+    where: { plotId: { not: null }, NOT: { memberId: "COMPANY" } },
     select: {
       id: true,
       memberId: true,

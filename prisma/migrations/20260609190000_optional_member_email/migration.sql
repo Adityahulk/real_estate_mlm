@@ -1,0 +1,2 @@
+ALTER TABLE "Member" ALTER COLUMN "email" DROP NOT NULL;
+ALTER TABLE "MemberApplication" ALTER COLUMN "email" DROP NOT NULL;
