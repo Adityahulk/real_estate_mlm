@@ -1,8 +1,9 @@
 import { currentMember } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
-import { eligibleDrawMembers } from "@/lib/services/draws";
+import { DEFAULT_DRAW_PRIZES, eligibleDrawMembers } from "@/lib/services/draws";
 import { Badge, Card, CardContent, CardHeader, CardTitle, Stat } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { Gift } from "lucide-react";
 
 const winnerTone = { WON: "warning", CLAIMED: "success", PENDING_DOCS: "danger" } as const;
 
@@ -36,6 +37,22 @@ export default async function MemberDrawsPage() {
         <Stat label="Prizes Won" value={wins.length} />
         <Stat label="Completed Draws" value={recentDraws.length} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lucky Draw Prize Items</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">These gifts are included in every five-prize draw.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {DEFAULT_DRAW_PRIZES.map((prize, index) => (
+            <div key={prize.name} className="rounded-lg border bg-muted/40 p-3 text-center">
+              <Gift className="mx-auto h-6 w-6 text-brand" />
+              <div className="mt-2 text-xs font-bold uppercase text-muted-foreground">Prize #{index + 1}</div>
+              <div className="mt-1 font-semibold">{prize.name}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {wins.length > 0 && (
         <Card>

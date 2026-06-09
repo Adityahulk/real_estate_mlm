@@ -290,6 +290,9 @@ model MemberApplication {
   whatsapp              String?
   email                 String                  @unique
   passwordHash          String
+  nomineeName           String?
+  nomineeRelation       String?
+  nomineePhone          String?
   sponsorId             String?
   sponsor               Member?                 @relation("ApplicationSponsor", fields: [sponsorId], references: [id])
   referrerApplicationId String?

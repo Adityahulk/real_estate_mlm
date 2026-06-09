@@ -27,8 +27,10 @@ export default async function SettingsPage() {
                       <option value="true">Yes</option>
                       <option value="false">No</option>
                     </Select>
-                  ) : (
+                  ) : meta.type === "NUMBER" ? (
                     <Input name={k} defaultValue={settings[k]} inputMode="numeric" />
+                  ) : (
+                    <Input name={k} defaultValue={settings[k]} placeholder="UPI payment link or company payment text" />
                   )}
                 </div>
               );

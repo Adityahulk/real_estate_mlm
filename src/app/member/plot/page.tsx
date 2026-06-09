@@ -25,8 +25,6 @@ export default async function MyPlotPage() {
           <Row k="Rate" v={`₹${PROJECT.ratePerSqFt} per sq.ft.`} />
           <Row k="Status" v={<Badge tone="brand">{p.status}</Badge>} />
           <Row k="Plot Price" v={formatINR(p.plotPrice)} />
-          <Row k="Development Charges" v={formatINR(p.developmentCharges)} />
-          <Row k="Documentation Charges" v={formatINR(p.documentationCharges)} />
           <Row k="Location" v={`${p.locationBlock ?? "-"} · Row ${p.rowNumber ?? "-"}`} />
           <Row k="Road Facing" v={p.roadFacing ? "Yes (40 ft road)" : "No"} />
           <Row k="Booking Date" v={p.bookingDate ? p.bookingDate.toISOString().slice(0, 10) : "Not booked yet"} />

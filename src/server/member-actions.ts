@@ -30,10 +30,6 @@ const kycSchema = z.object({
   accountNumber: z.string().min(4),
   ifscCode: z.string().min(4),
   accountHolderName: z.string().min(1),
-  nomineeName: z.string().min(1),
-  nomineeRelation: z.string().min(1),
-  nomineeAadhaar: z.string().regex(/^\d{12}$/, "Nominee Aadhaar must be 12 digits"),
-  nomineePhone: z.string().regex(/^\d{10}$/, "Nominee phone must be 10 digits"),
 });
 
 export async function submitKycAction(_prev: { error?: string } | undefined, formData: FormData) {
@@ -58,10 +54,6 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       accountLast4: last4(d.accountNumber),
       ifscCode: d.ifscCode,
       accountHolderName: d.accountHolderName,
-      nomineeName: d.nomineeName,
-      nomineeRelation: d.nomineeRelation,
-      nomineeAadhaar: encryptPII(d.nomineeAadhaar),
-      nomineePhone: d.nomineePhone,
       aadhaarFrontUrl,
       aadhaarBackUrl,
       panCardUrl,
@@ -74,10 +66,6 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       accountLast4: last4(d.accountNumber),
       ifscCode: d.ifscCode,
       accountHolderName: d.accountHolderName,
-      nomineeName: d.nomineeName,
-      nomineeRelation: d.nomineeRelation,
-      nomineeAadhaar: encryptPII(d.nomineeAadhaar),
-      nomineePhone: d.nomineePhone,
       ...(aadhaarFrontUrl && { aadhaarFrontUrl }),
       ...(aadhaarBackUrl && { aadhaarBackUrl }),
       ...(panCardUrl && { panCardUrl }),

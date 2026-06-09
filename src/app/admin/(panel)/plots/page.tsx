@@ -28,8 +28,6 @@ export default async function PlotsPage({ searchParams }: { searchParams: Promis
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Plot Number"><Input name="plotNumber" placeholder="P021" /></Field>
               <Field label="Plot Price"><Input name="plotPrice" inputMode="numeric" defaultValue="300240" /></Field>
-              <Field label="Development Charges"><Input name="developmentCharges" inputMode="numeric" defaultValue="25000" /></Field>
-              <Field label="Documentation Charges"><Input name="documentationCharges" inputMode="numeric" defaultValue="15000" /></Field>
               <Field label="Location Block"><Input name="locationBlock" placeholder="Block A" /></Field>
             </div>
             <SubmitButton>Add Plot</SubmitButton>
@@ -96,8 +94,6 @@ export default async function PlotsPage({ searchParams }: { searchParams: Promis
                         <option value="DRAW_WON">Draw Won</option>
                       </Select>
                     </Field>
-                    <Field label="Development Charges"><Input name="developmentCharges" defaultValue={p.developmentCharges.toString()} inputMode="numeric" /></Field>
-                    <Field label="Documentation Charges"><Input name="documentationCharges" defaultValue={p.documentationCharges.toString()} inputMode="numeric" /></Field>
                     <Field label="Location Block"><Input name="locationBlock" defaultValue={p.locationBlock ?? ""} placeholder="Block" /></Field>
                   </div>
                   <button type="submit" className="rounded-xl bg-brand px-4 py-2 text-sm font-medium text-brand-foreground">

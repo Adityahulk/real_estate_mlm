@@ -3,7 +3,7 @@
 export const PROJECT = {
   name: "Shree Shyam Villa – 2",
   groupName: "Shree Shyam Group",
-  groupPhotoUrl: "/proposal/cover.png",
+  groupPhotoUrl: "/shree-shyam-group-logo.png",
   siteName: "Sohel Dev Nagar–2",
   surveyNo: "920",
   blockNo: "918",
@@ -19,7 +19,6 @@ export const PROJECT = {
   office: "FF8 Sai Avenue, Madhuram Circle, Dindoli Kharwasa Road, Dindoli, Surat, Gujarat",
   contacts: [
     { role: "Owner", name: "Mr. Rajesh Bhai", phone: "7802847593" },
-    { role: "Co-Developer", name: "DK Verma", phone: "98987 74296" },
     { role: "Developer", name: "Bharat Bhai", phone: "9227233893" },
   ],
 } as const;

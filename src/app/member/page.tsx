@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { currentMember, memberDashboard } from "@/lib/services/queries";
+import { currentMember, downlineTree, memberDashboard } from "@/lib/services/queries";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
@@ -10,7 +10,7 @@ const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "w
 
 export default async function MemberDashboard() {
   const me = await currentMember();
-  const [d, eligiblePool] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers()]);
+  const [d, eligiblePool, tree] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers(), downlineTree(me.id, 2)]);
   const isDrawEligibleNow = eligiblePool.some((member) => member.id === me.id);
 
   return (
@@ -72,6 +72,39 @@ export default async function MemberDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>My Binary Tree</CardTitle>
+            <Link href="/member/tree"><Button size="sm" variant="outline">View Full Tree</Button></Link>
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <div className="flex min-w-max justify-center py-2"><DashboardTreeNode node={tree} /></div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+type DashboardNode = Awaited<ReturnType<typeof downlineTree>>;
+
+function DashboardTreeNode({ node }: { node: DashboardNode }) {
+  if (!node) return <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">Empty</div>;
+  return (
+    <div className="flex flex-col items-center">
+      <div className="rounded-lg border border-success/40 bg-success/5 px-3 py-2 text-center">
+        <div className="text-sm font-semibold">{node.memberId}</div>
+        <div className="max-w-28 truncate text-xs text-muted-foreground">{node.fullName}</div>
+        <div className="text-[10px] text-muted-foreground">L {node.leftTeamCount} · R {node.rightTeamCount}</div>
+      </div>
+      {(node.left || node.right) && (
+        <div className="mt-3 flex gap-4">
+          <DashboardTreeNode node={node.left as DashboardNode} />
+          <DashboardTreeNode node={node.right as DashboardNode} />
+        </div>
+      )}
     </div>
   );
 }

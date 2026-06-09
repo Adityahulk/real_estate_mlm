@@ -52,6 +52,7 @@ export default async function AdminOverview() {
                 <div><span className="text-muted-foreground">Mobile:</span> <b>{application.mobile}</b></div>
                 <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor ? `${application.sponsor.memberId} · ${application.sponsor.fullName}` : application.referrerApplication ? `${application.referrerApplication.applicationCode} · ${application.referrerApplication.fullName}` : "No referrer"}</b></div>
                 <div><span className="text-muted-foreground">Free ID:</span> <b>{application.applicationCode}</b></div>
+                <div><span className="text-muted-foreground">Nominee:</span> <b>{application.nomineeName ?? "—"} · {application.nomineeRelation ?? "—"} · {application.nomineePhone ?? "—"}</b></div>
               </div>
               <StatefulForm action={approveApplicationAction}>
                 <input type="hidden" name="applicationId" value={application.id} />

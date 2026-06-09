@@ -32,6 +32,7 @@ export default async function KycPage() {
     <Card>
       <CardHeader>
         <CardTitle>Complete KYC</CardTitle>
+        <p className="mt-1 text-sm text-muted-foreground">KYC is required only before collecting income payouts from the company.</p>
         {me.kyc?.rejectionReason && (
           <p className="mt-1 text-sm text-danger">Previously rejected: {me.kyc.rejectionReason}</p>
         )}
@@ -52,14 +53,6 @@ export default async function KycPage() {
             <Field label="Account Holder Name"><Input name="accountHolderName" /></Field>
             <Field label="Account Number"><Input name="accountNumber" /></Field>
             <Field label="IFSC Code"><Input name="ifscCode" /></Field>
-          </div>
-
-          <div className="mb-2 mt-4 text-sm font-semibold">Nominee Details</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Nominee Name"><Input name="nomineeName" /></Field>
-            <Field label="Relation"><Input name="nomineeRelation" /></Field>
-            <Field label="Nominee Aadhaar"><Input name="nomineeAadhaar" inputMode="numeric" /></Field>
-            <Field label="Nominee Phone"><Input name="nomineePhone" inputMode="numeric" /></Field>
           </div>
 
           <SubmitButton className="mt-4 w-full sm:w-auto">Submit for Review</SubmitButton>

@@ -17,7 +17,7 @@ export default function Home() {
     <main>
       <header className="absolute inset-x-0 top-0 z-20">
         <div className="brand-rule" />
-        <div className="mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-lg border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+        <div className="mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-lg border bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
           <Brand />
           <div className="flex items-center gap-2">
             <Link href="/login"><Button variant="ghost" size="sm">Login</Button></Link>
@@ -70,8 +70,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6">
           <SectionTitle eyebrow="Flexible Options" title="Choose Your Payment Plan" text="Easy process, transparent terms, and a secure investment." />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["Payment window: 1st to 25th", "Total plot value ₹3,00,240", "Online and offline payment"]} />
-            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,240" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Minimum payout transfer ₹500"]} />
+            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["Payment window: 1st to 25th", "Total plot value ₹3,00,240", "Pay through company QR; admin verifies payment"]} />
+            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,240" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Admin records verified company payments"]} />
           </div>
         </div>
       </section>
@@ -86,9 +86,9 @@ export default function Home() {
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-16 lg:grid-cols-3">
-        <Feature icon={Gift} eyebrow="Lucky Draw" title="Five Prizes Every Draw" text="Draw runs between the 5th and 10th. Plot prize registration/documentation happens in the final month, conditions apply." image="/proposal/draw.png" />
+        <Feature icon={Gift} eyebrow="Lucky Draw Gifts" title="Plot, Mixer, Iron, Cooker & Tea Set" text="Every draw clearly lists all prize items. Draw runs between the 5th and 10th; plot registration happens in the final month, conditions apply." image="/proposal/draw.png" />
         <Feature icon={Medal} eyebrow="Bronze Rank" title="11 Direct Sponsors" text="If a Bronze-qualified member's direct referral wins a draw prize, the Bronze member receives the same prize. Without Bronze qualification, no bonus prize is given." image="/proposal/bronze.png" />
-        <Feature icon={ShieldCheck} eyebrow="Family Security" title="Insurance Protection" text="After five paid EMIs, accidental or normal death protection secures the plot for the nominee. Documentation/Aadhaar charges are separate." image="/proposal/insurance.png" />
+        <Feature icon={ShieldCheck} eyebrow="Family Security" title="Insurance Protection" text="After five paid EMIs, accidental or normal death protection secures the plot for the nominee, subject to policy conditions." image="/proposal/insurance.png" />
       </section>
 
       <section className="bg-foreground py-14 text-white">
@@ -106,7 +106,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-5 px-6 sm:flex-row">
           <div><Brand /><p className="mt-2 text-xs text-muted-foreground">{PROJECT.office}</p></div>
           <div className="space-y-1 text-muted-foreground">
-            {PROJECT.contacts.map((c) => <div key={c.phone}>{c.name} · <strong>{c.phone}</strong></div>)}
+            {PROJECT.contacts.map((c) => <div key={c.phone}><strong>{c.role}:</strong> {c.name} · {c.phone}</div>)}
             <Link href="/login" className="inline-block pt-2 text-brand">Admin Login</Link>
           </div>
         </div>

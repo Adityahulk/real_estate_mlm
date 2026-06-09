@@ -8,8 +8,7 @@ export const SETTING_DEFAULTS = {
   num_installments: "29",
   cashback_rate_pct: "3",
   cashback_months: "34",
-  development_charges: "0",
-  documentation_charges: "0",
+  company_payment_qr_data: "",
   admin_charge_pct: "5",
   tds_rate_pct: "0",
   draw_frequency_months: "2",
@@ -25,14 +24,13 @@ export const SETTING_DEFAULTS = {
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 
-export const SETTING_META: Record<SettingKey, { label: string; type: "NUMBER" | "BOOLEAN" }> = {
+export const SETTING_META: Record<SettingKey, { label: string; type: "NUMBER" | "BOOLEAN" | "STRING" }> = {
   plot_price: { label: "Plot Price (₹)", type: "NUMBER" },
   booking_amount: { label: "Booking Amount (₹)", type: "NUMBER" },
   num_installments: { label: "Number of EMI Installments", type: "NUMBER" },
   cashback_rate_pct: { label: "Cashback Rate (% / month)", type: "NUMBER" },
   cashback_months: { label: "Cashback Duration (months)", type: "NUMBER" },
-  development_charges: { label: "Development Charges (₹)", type: "NUMBER" },
-  documentation_charges: { label: "Documentation Charges (₹)", type: "NUMBER" },
+  company_payment_qr_data: { label: "Company Payment QR / UPI Data", type: "STRING" },
   admin_charge_pct: { label: "Admin Charge on Commission (%)", type: "NUMBER" },
   tds_rate_pct: { label: "TDS Rate (%) — unused", type: "NUMBER" },
   draw_frequency_months: { label: "Lucky Draw Frequency (months)", type: "NUMBER" },

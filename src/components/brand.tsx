@@ -1,10 +1,21 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export function Brand({ href = "/", compact = false }: { href?: string; compact?: boolean }) {
   return (
-    <Link href={href} className="inline-flex items-baseline gap-2">
-      <span className="text-sm font-black uppercase tracking-[0.16em] text-foreground">Shree</span>
-      <span className={compact ? "text-lg font-bold text-brand" : "text-xl font-bold text-brand"}>Shyam Villa–2</span>
+    <Link href={href} className="inline-flex items-center gap-2">
+      <Image
+        src="/shree-shyam-group-logo.png"
+        alt="Shree Shyam Group"
+        width={compact ? 42 : 54}
+        height={compact ? 42 : 54}
+        className="rounded-md object-cover"
+        priority
+      />
+      <span className="leading-tight">
+        <span className={compact ? "block text-sm font-black uppercase" : "block text-base font-black uppercase"}>Shree Shyam Group</span>
+        <span className="block text-xs font-bold uppercase tracking-wide text-brand">Shyam Villa–2</span>
+      </span>
     </Link>
   );
 }

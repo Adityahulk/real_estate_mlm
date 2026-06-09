@@ -77,7 +77,7 @@ export function SideNav({
   return (
     <nav className="flex flex-col gap-1 rounded-lg border bg-card p-2 shadow-sm">
       <div className="border-b p-3">
-        <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-md border bg-muted">
+        <div className="relative mb-3 aspect-square overflow-hidden rounded-md border bg-black">
           <Image src={PROJECT.groupPhotoUrl} alt={PROJECT.groupName} fill className="object-cover" />
         </div>
         <div className="text-sm font-black uppercase">{PROJECT.groupName}</div>

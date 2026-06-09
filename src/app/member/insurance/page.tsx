@@ -19,7 +19,7 @@ export default async function InsurancePage() {
               <Field label="Death Certificate"><Input name="deathCertificate" type="file" accept="image/*,.pdf" /></Field>
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              Insurance applies for accidental or normal death after at least 5 paid months. Nominee receives plot documentation/registration; Aadhaar, documentation, and other charges are separate.
+              Insurance applies for accidental or normal death after at least 5 paid months. Nominee receives the plot according to policy conditions.
             </p>
             <SubmitButton>Submit Claim</SubmitButton>
           </StatefulForm>

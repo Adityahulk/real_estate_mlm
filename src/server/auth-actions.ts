@@ -15,12 +15,13 @@ export type ActionState = { error?: string; success?: string } | undefined;
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Enter full name"),
-  aadhaarNumber: z.string().regex(/^\d{12}$/, "Aadhaar must be 12 digits"),
   mobile: z.string().regex(/^\d{10}$/, "Mobile must be 10 digits"),
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   sponsorMemberId: z.string().optional(),
-  paymentPlan: z.enum(["INSTALLMENT", "CASHBACK"]).default("INSTALLMENT"),
+  nomineeName: z.string().min(2, "Enter nominee name"),
+  nomineeRelation: z.string().min(2, "Enter nominee relation"),
+  nomineePhone: z.string().regex(/^\d{10}$/, "Nominee mobile must be 10 digits"),
 });
 
 export async function registerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -433,7 +433,7 @@ export async function updateSettingsAction(formData: FormData) {
     if (typeof raw !== "string") continue;
     if (SETTING_META[key].type === "BOOLEAN") {
       if (!["true", "false"].includes(raw)) throw new Error(`Invalid value for ${SETTING_META[key].label}`);
-    } else {
+    } else if (SETTING_META[key].type === "NUMBER") {
       const value = Number(raw);
       if (!Number.isFinite(value) || value < 0) throw new Error(`${SETTING_META[key].label} must be a non-negative number`);
     }

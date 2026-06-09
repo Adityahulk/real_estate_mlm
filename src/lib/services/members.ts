@@ -12,11 +12,14 @@ export const COMPANY_ROOT_MEMBER_ID = "COMPANY";
 
 export interface RegisterInput {
   fullName: string;
-  aadhaarNumber: string;
+  aadhaarNumber?: string;
   mobile: string;
   whatsapp?: string;
   email: string;
   password: string;
+  nomineeName?: string;
+  nomineeRelation?: string;
+  nomineePhone?: string;
   sponsorMemberId?: string; // paid member ID/plot number or free application ID
   paymentPlan?: "INSTALLMENT" | "CASHBACK";
   preferredSide?: "LEFT" | "RIGHT";
@@ -58,6 +61,9 @@ export async function createMemberApplication(input: RegisterInput) {
       whatsapp: input.whatsapp ?? input.mobile,
       email: input.email,
       passwordHash: await hashPassword(input.password),
+      nomineeName: input.nomineeName,
+      nomineeRelation: input.nomineeRelation,
+      nomineePhone: input.nomineePhone,
       applicationCode: await generateApplicationCode(),
       sponsorId: sponsor?.id,
       referrerApplicationId: referrerApplication?.id,
@@ -128,6 +134,18 @@ export async function approveMemberApplication(args: {
         isActive: true,
       },
     });
+
+    if (application.nomineeName && application.nomineeRelation && application.nomineePhone) {
+      await tx.memberKyc.create({
+        data: {
+          memberId: member.id,
+          nomineeName: application.nomineeName,
+          nomineeRelation: application.nomineeRelation,
+          nomineePhone: application.nomineePhone,
+          status: "NOT_STARTED",
+        },
+      });
+    }
 
     await tx.plot.update({ where: { id: plot.id }, data: { status: "BOOKED" } });
 

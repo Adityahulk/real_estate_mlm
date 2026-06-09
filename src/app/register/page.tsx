@@ -1,22 +1,19 @@
 import Link from "next/link";
 import { registerAction } from "@/server/auth-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
-import { Field, Input, Select } from "@/components/ui";
+import { Field, Input } from "@/components/ui";
 import { AuthShell } from "@/components/auth-shell";
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { ref } = await searchParams;
   return (
-    <AuthShell wide eyebrow="Free Member Application" title="Register Free" description="Create a free application first. Your ID appears in the structure only after admin collects the token amount and assigns your chosen plot.">
+    <AuthShell wide eyebrow="Free Member Application" title="Register Free" description="Register without payment or KYC. Your ID enters the binary structure only after admin approval.">
         <StatefulForm action={registerAction}>
-          <Field label="Full Name (as per Aadhaar)">
+          <Field label="Full Name">
             <Input name="fullName" placeholder="Full name" />
           </Field>
-          <Field label="Aadhaar Number">
-            <Input name="aadhaarNumber" inputMode="numeric" placeholder="12-digit Aadhaar" />
-          </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Mobile (WhatsApp)">
+            <Field label="Mobile Number">
               <Input name="mobile" inputMode="numeric" placeholder="10-digit" />
             </Field>
             <Field label="Email">
@@ -26,16 +23,14 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
           <Field label="Password">
             <Input name="password" type="password" placeholder="At least 6 characters" />
           </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Sponsor / Referral ID (optional)">
-              <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Paid member ID or FREE- ID" />
-            </Field>
-            <Field label="Payment Plan">
-              <Select name="paymentPlan" defaultValue="INSTALLMENT">
-                <option value="INSTALLMENT">Installment</option>
-                <option value="CASHBACK">Cashback</option>
-              </Select>
-            </Field>
+          <Field label="Sponsor ID (optional)">
+            <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Paid member ID or FREE- ID" />
+          </Field>
+          <div className="mt-2 text-sm font-semibold">Nominee Details</div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Nominee Name"><Input name="nomineeName" /></Field>
+            <Field label="Relation"><Input name="nomineeRelation" /></Field>
+            <Field label="Nominee Mobile"><Input name="nomineePhone" inputMode="numeric" placeholder="10-digit" /></Field>
           </div>
           <SubmitButton className="mt-2 w-full">Create Account</SubmitButton>
         </StatefulForm>

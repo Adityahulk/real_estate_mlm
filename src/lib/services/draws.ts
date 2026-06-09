@@ -50,7 +50,6 @@ export async function eligibleDrawMembers() {
   return prisma.member.findMany({
     where: {
       isActive: true,
-      kycStatus: "APPROVED",
       NOT: { memberId: "COMPANY" },
       payments: {
         some: {

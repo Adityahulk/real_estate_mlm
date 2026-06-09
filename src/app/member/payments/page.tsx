@@ -2,21 +2,44 @@ import { currentMember } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { getSetting } from "@/lib/settings";
+import QRCode from "qrcode";
 
 const emiTone = { PAID: "success", DUE: "warning", OVERDUE: "danger", UPCOMING: "neutral", WAIVED: "neutral" } as const;
 
 export default async function PaymentsPage() {
   const me = await currentMember();
-  const [schedule, bookingPaid, payments, cashbackCredits] = await Promise.all([
+  const [schedule, bookingPaid, payments, cashbackCredits, companyPaymentData] = await Promise.all([
     prisma.emiSchedule.findMany({ where: { memberId: me.id }, orderBy: { installmentNo: "asc" } }),
     prisma.payment.findFirst({ where: { memberId: me.id, paymentType: "BOOKING", status: "VERIFIED" } }),
     prisma.payment.findMany({ where: { memberId: me.id }, orderBy: { createdAt: "desc" } }),
     prisma.cashbackCredit.findMany({ where: { memberId: me.id }, orderBy: { monthNo: "asc" } }),
+    getSetting("company_payment_qr_data"),
   ]);
+  const companyPaymentQr = companyPaymentData ? await QRCode.toDataURL(companyPaymentData, { width: 320, margin: 1 }) : null;
   const cashbackPaid = payments.some((payment) => payment.paymentType === "CASHBACK_FULL" && payment.status === "VERIFIED");
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle>Pay Company by QR</CardTitle></CardHeader>
+        <CardContent className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          {companyPaymentQr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={companyPaymentQr} alt="Company payment QR code" className="h-52 w-52 rounded-lg border bg-white p-2" />
+          ) : (
+            <div className="flex h-52 w-52 items-center justify-center rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
+              Company payment QR will appear after admin configures it.
+            </div>
+          )}
+          <div className="text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Scan this QR to pay the company.</p>
+            <p className="mt-2">Include your member ID <b>{me.memberId}</b> in the payment note. Only admin can verify and mark payments as paid.</p>
+            {companyPaymentData && <p className="mt-3 break-all rounded-md bg-muted p-2 text-xs">{companyPaymentData}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader><CardTitle>Booking Payment</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
