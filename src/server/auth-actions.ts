@@ -48,7 +48,7 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
 }
 
 const loginSchema = z.object({
-  loginId: z.string().min(1, "Enter mobile number or email"),
+  loginId: z.string().min(1, "Enter Member ID, mobile number, or email"),
   password: z.string().min(1, "Enter password"),
 });
 
@@ -56,25 +56,32 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const loginId = parsed.data.loginId.trim().toLowerCase();
+  const memberId = loginId.toUpperCase();
 
-  if (loginId.includes("@")) {
-    const admin = await prisma.user.findUnique({ where: { email: loginId } });
-    if (admin && admin.isActive && await verifyPassword(parsed.data.password, admin.passwordHash)) {
-      await setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
-      redirect("/admin");
-    }
+  let admin;
+  let member;
+  try {
+    admin = loginId.includes("@") ? await prisma.user.findUnique({ where: { email: loginId } }) : null;
+    member = await prisma.member.findFirst({
+      where: {
+        OR: [
+          { memberId },
+          { mobile: loginId },
+          { email: loginId },
+        ],
+      },
+    });
+  } catch (error) {
+    console.error("Login database connection failed:", error);
+    return { error: "Database is unavailable. Start or configure the database, then try again." };
   }
 
-  const member = await prisma.member.findFirst({
-    where: {
-      OR: [
-        { mobile: loginId },
-        { email: loginId },
-      ],
-    },
-  });
+  if (admin && admin.isActive && await verifyPassword(parsed.data.password, admin.passwordHash)) {
+    await setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
+    redirect("/admin");
+  }
   if (!member || !(await verifyPassword(parsed.data.password, member.passwordHash))) {
-    return { error: "Invalid mobile/email or password" };
+    return { error: "Invalid Member ID, mobile/email, or password" };
   }
   if (!member.isActive) return { error: "Your account is disabled. Contact admin." };
   await setMemberCookie(signMember({ sub: member.id, memberId: member.memberId }));

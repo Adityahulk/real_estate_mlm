@@ -42,6 +42,24 @@ export function findBfsPlacement(nodes: TreeNode[], rootId: string): Placement {
   return { parentId: rootId, side: "LEFT", level: 1 };
 }
 
+// Placement starts inside the nearest already-paid sponsor's subtree. Free
+// sponsors are skipped until the first paid sponsor in their upline is found.
+export function findSponsorPlacementRoot(args: {
+  startSponsorId: string | null;
+  sponsorOf: Map<string, string | null>;
+  paidMemberIds: Set<string>;
+  fallbackRootId: string;
+}): string {
+  const seen = new Set<string>();
+  let current = args.startSponsorId;
+  while (current && !seen.has(current)) {
+    if (args.paidMemberIds.has(current)) return current;
+    seen.add(current);
+    current = args.sponsorOf.get(current) ?? null;
+  }
+  return args.fallbackRootId;
+}
+
 // Given the newly placed node, returns the list of {ancestorId, side} counter
 // increments: walk from the new node up to the root; at each step the ancestor's
 // count on the side the child sits in is incremented.

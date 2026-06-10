@@ -75,7 +75,7 @@ export default async function BusinessPlanPage() {
         <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
           <PlanPoint title="Only Paid IDs Enter Structure" text="Free registrations stay in the approval list. After admin collects the token amount and approves the member, the ID enters the tree." />
           <PlanPoint title="Auto Placement" text="Paid IDs are placed left-to-right and top-to-bottom wherever the next space is available." />
-          <PlanPoint title="Common Tree" text="The tree is common for all paid members. Referral decides sponsor income, not the physical placement slot." />
+          <PlanPoint title="Sponsor Downline Placement" text="Each paid ID enters below its nearest paid sponsor, then fills that sponsor's downline left-to-right and top-to-bottom." />
         </CardContent>
       </Card>
 

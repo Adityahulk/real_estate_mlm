@@ -77,6 +77,8 @@ export default async function MemberDashboard() {
           <CardHeader><CardTitle>Status & Rewards</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
             <Row k="KYC" v={<Badge tone={kycTone[me.kycStatus]}>{me.kycStatus.replace("_", " ")}</Badge>} />
+            <Row k="My Member ID" v={me.memberId} />
+            <Row k="Sponsor ID" v={me.sponsor?.memberId ?? "COMPANY"} />
             <Row k="Rank" v={<Badge tone={rankTone[me.rank]}>{me.rank}</Badge>} />
             <Row k="Draw Eligible" v={<Badge tone={isDrawEligibleNow ? "success" : "neutral"}>{isDrawEligibleNow ? "Yes" : "No"}</Badge>} />
             <Row k="Team (L / R)" v={`${d.pair.left} / ${d.pair.right}`} />
@@ -84,6 +86,38 @@ export default async function MemberDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>My Direct Team ({d.directTeam.length})</CardTitle>
+            <Link href="/member/referral"><Button size="sm" variant="outline">Open Refer &amp; Earn</Button></Link>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">Paid IDs are active in the binary structure. Free IDs remain visible here until admin activates their plot.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {d.directTeam.map((member) => {
+            const paid = !!member.plotId;
+            return (
+              <Link
+                key={member.id}
+                href={paid ? `/member/tree?root=${encodeURIComponent(member.memberId)}` : "/member/referral"}
+                className={`rounded-lg border p-3 transition hover:border-brand ${paid ? "border-success/40 bg-success/5" : "border-danger/40 bg-danger/5"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold">{member.memberId}</div>
+                    <div className="text-sm">{member.fullName}</div>
+                    <div className="text-xs text-muted-foreground">{member.mobile}</div>
+                  </div>
+                  <Badge tone={paid ? "success" : "danger"}>{paid ? "Active / Paid" : "Free / Inactive"}</Badge>
+                </div>
+              </Link>
+            );
+          })}
+          {!d.directTeam.length && <div className="py-4 text-sm text-muted-foreground">No direct team members yet.</div>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

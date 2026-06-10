@@ -6,10 +6,10 @@ import { AuthShell } from "@/components/auth-shell";
 
 export default function LoginPage() {
   return (
-    <AuthShell eyebrow="Member & Admin Portal" title="Welcome Back" description="Members can log in with mobile number or email. Admins can log in with email.">
+    <AuthShell eyebrow="Member & Admin Portal" title="Welcome Back" description="Members can log in with their generated Member ID, mobile number, or email. Admins can log in with email.">
         <StatefulForm action={loginAction}>
-          <Field label="Mobile Number or Email">
-            <Input name="loginId" autoComplete="username" placeholder="Mobile number or email" />
+          <Field label="Member ID, Mobile Number, or Email">
+            <Input name="loginId" autoComplete="username" placeholder="SSV000001, mobile number, or email" />
           </Field>
           <Field label="Password">
             <Input name="password" type="password" autoComplete="current-password" placeholder="Your password" />

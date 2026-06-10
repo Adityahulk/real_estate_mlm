@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Input, Select, Stat } from "@/components/ui";
 import { downlineTree } from "@/lib/services/queries";
 import { BinaryTree } from "@/components/binary-tree";
-import { resetMemberPasswordAction } from "@/server/admin-actions";
+import { rebuildBinaryTreeAction, resetMemberPasswordAction } from "@/server/admin-actions";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
 const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "warning" } as const;
@@ -99,6 +99,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
           <p className="text-sm text-muted-foreground">Admin default view is tree format. Use list only when you need table/search details.</p>
         </div>
         <Link href="/admin/members?view=list"><Button variant="outline">Open Member List</Button></Link>
+        <form action={rebuildBinaryTreeAction}>
+          <Button type="submit" variant="outline">Rebuild Tree Placement</Button>
+        </form>
       </div>
       {root && (
         <div className="grid gap-4 sm:grid-cols-4">

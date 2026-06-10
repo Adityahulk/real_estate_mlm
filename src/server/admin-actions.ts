@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getAdminSession } from "@/lib/auth";
 import { confirmPayment, recomputeEligibilityTx } from "@/lib/services/payments";
 import { processDuePayouts, releaseHeldPayouts } from "@/lib/services/payouts";
-import { approveMemberApplication } from "@/lib/services/members";
+import { approveMemberApplication, rebuildPaidBinaryTree } from "@/lib/services/members";
 import { conductDraw, markDrawPrizeClaimed } from "@/lib/services/draws";
 import { approveInsuranceClaim, processDueCashbacks, syncAllPairRewards, transferMemberPlot, updateEmiStatusesAndReminders } from "@/lib/services/operations";
 import { hashPassword } from "@/lib/password";
@@ -120,6 +120,16 @@ export async function rejectApplicationAction(applicationId: string) {
     }),
   ]);
   revalidatePath("/admin");
+}
+
+export async function rebuildBinaryTreeAction() {
+  const uid = await adminId();
+  const result = await rebuildPaidBinaryTree();
+  await prisma.auditLog.create({
+    data: { actorId: uid, action: "BINARY_TREE_REBUILD", entity: "Member", after: { rebuilt: result.rebuilt } },
+  });
+  revalidatePath("/admin");
+  revalidatePath("/admin/members");
 }
 
 export async function resetMemberPasswordAction(formData: FormData) {

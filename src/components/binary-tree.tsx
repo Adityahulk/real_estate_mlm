@@ -5,6 +5,8 @@ export type BinaryTreeNode = {
   id: string;
   memberId: string;
   fullName: string;
+  mobile: string;
+  isActive: boolean;
   rank: "NONE" | "BRONZE" | "SILVER" | "GOLD";
   leftTeamCount: number;
   rightTeamCount: number;
@@ -95,6 +97,7 @@ function MemberNode({ node, href }: { node: BinaryTreeNode; href?: string }) {
     <>
       <div className="truncate text-[10px] font-bold">{node.memberId}</div>
       <div className="max-w-[4.5rem] truncate text-[9px] text-muted-foreground">{node.fullName}</div>
+      <div className="max-w-[4.5rem] truncate text-[8px] text-muted-foreground">{node.mobile}</div>
       <div className="text-[8px] text-muted-foreground">L{node.leftTeamCount} · R{node.rightTeamCount}</div>
     </>
   );

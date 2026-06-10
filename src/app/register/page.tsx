@@ -7,7 +7,7 @@ import { AuthShell } from "@/components/auth-shell";
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { ref } = await searchParams;
   return (
-    <AuthShell wide eyebrow="Free Member Registration" title="Register Free" description="The system creates your Member ID automatically. Use it as your Sponsor ID and log in using your mobile number.">
+    <AuthShell wide eyebrow="Free Member Registration" title="Register Free" description="The system creates your Member ID automatically. Use it as your Sponsor ID and use the same ID to log in.">
         <StatefulForm action={registerAction}>
           <Field label="Full Name">
             <Input name="fullName" placeholder="Full name" />

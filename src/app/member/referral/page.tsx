@@ -16,7 +16,7 @@ export default async function ReferralPage() {
 
   const referrals = await prisma.member.findMany({
     where: { sponsorId: me.id, plotId: { not: null } },
-    select: { memberId: true, fullName: true, joinDate: true, kycStatus: true },
+    select: { memberId: true, fullName: true, mobile: true, joinDate: true, kycStatus: true },
     orderBy: { joinDate: "desc" },
   });
   const applications = await prisma.memberApplication.findMany({
@@ -45,7 +45,7 @@ export default async function ReferralPage() {
         <CardContent className="space-y-1 text-sm">
           {applications.map((application) => (
             <div key={application.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>{application.applicationCode} · {application.fullName}</span>
+              <span>{application.applicationCode} · {application.fullName} · {application.mobile}</span>
               <span className="text-muted-foreground">{application.createdAt.toISOString().slice(0, 10)}</span>
             </div>
           ))}
@@ -58,7 +58,7 @@ export default async function ReferralPage() {
         <CardContent className="space-y-1 text-sm">
           {referrals.map((r) => (
             <div key={r.memberId} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>{r.memberId} · {r.fullName}</span>
+              <span>{r.memberId} · {r.fullName} · {r.mobile}</span>
               <span className="flex items-center gap-2 text-muted-foreground">
                 {r.joinDate.toISOString().slice(0, 10)}
                 <Badge tone={r.kycStatus === "APPROVED" ? "success" : "neutral"}>{r.kycStatus.replace("_", " ")}</Badge>

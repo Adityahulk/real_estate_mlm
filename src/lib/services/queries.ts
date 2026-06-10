@@ -28,10 +28,17 @@ export async function memberDashboard(memberId: string) {
     include: { plot: true, kyc: true },
   });
 
-  const nextEmi = await prisma.emiSchedule.findFirst({
-    where: { memberId, status: { in: ["UPCOMING", "DUE", "OVERDUE"] } },
-    orderBy: { installmentNo: "asc" },
-  });
+  const [nextEmi, directTeam] = await Promise.all([
+    prisma.emiSchedule.findFirst({
+      where: { memberId, status: { in: ["UPCOMING", "DUE", "OVERDUE"] } },
+      orderBy: { installmentNo: "asc" },
+    }),
+    prisma.member.findMany({
+      where: { sponsorId: memberId, NOT: { memberId: "COMPANY" } },
+      select: { id: true, memberId: true, fullName: true, mobile: true, plotId: true, isActive: true, joinDate: true },
+      orderBy: { joinDate: "asc" },
+    }),
+  ]);
 
   // Income is paid out per-payment next-day; aggregate from payouts (net) by status.
   const payoutAgg = await prisma.payout.groupBy({
@@ -71,6 +78,7 @@ export async function memberDashboard(memberId: string) {
       right: member.rightTeamCount,
       unlocked: unlockedPairRewards(member.leftTeamCount, member.rightTeamCount),
     },
+    directTeam,
   };
 }
 
@@ -116,6 +124,7 @@ export async function downlineTree(rootMemberId: string, depth = 3) {
       id: true,
       memberId: true,
       fullName: true,
+      mobile: true,
       treeParentId: true,
       treeSide: true,
       isActive: true,
