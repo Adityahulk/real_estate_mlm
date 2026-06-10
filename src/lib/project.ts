@@ -15,7 +15,7 @@ export const PROJECT = {
   plotSize: "12 × 36 feet",
   plotAreaSqFt: 432,
   ratePerSqFt: 695,
-  plotValue: 300240,
+  plotValue: 300000,
   office: "FF8 Sai Avenue, Madhuram Circle, Dindoli Kharwasa Road, Dindoli, Surat, Gujarat",
   contacts: [
     { role: "Owner", name: "Mr. Rajesh Bhai", phone: "7802847593" },

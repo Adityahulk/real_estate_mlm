@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { adminOverview } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
-import { getNumberSetting } from "@/lib/settings";
 import { approveApplicationAction, rejectApplicationAction } from "@/server/admin-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Stat } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
+import { FIXED_BOOKING_AMOUNT } from "@/lib/business-rules";
 
 export default async function AdminOverview() {
-  const [o, applications, bookingAmount, availablePlots] = await Promise.all([
+  const [o, applications, availablePlots] = await Promise.all([
     adminOverview(),
     prisma.memberApplication.findMany({
       where: { status: "PENDING" },
@@ -19,7 +19,6 @@ export default async function AdminOverview() {
       },
       orderBy: { createdAt: "asc" },
     }),
-    getNumberSetting("booking_amount"),
     prisma.plot.findMany({
       where: { status: "AVAILABLE" },
       select: { plotNumber: true },
@@ -56,12 +55,12 @@ export default async function AdminOverview() {
               </div>
               <StatefulForm action={approveApplicationAction}>
                 <input type="hidden" name="applicationId" value={application.id} />
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Field label="Customer Plot Number">
                     <Input name="plotNumber" list="available-plot-numbers" placeholder="e.g. P001" />
                   </Field>
-                  <Field label="Token Amount">
-                    <Input name="tokenAmount" defaultValue={bookingAmount} inputMode="numeric" />
+                  <Field label="Booking Amount">
+                    <Input value={FIXED_BOOKING_AMOUNT} readOnly aria-readonly="true" />
                   </Field>
                   <Field label="Payment Mode">
                     <Select name="paymentMode" defaultValue="CASH">

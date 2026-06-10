@@ -5,6 +5,7 @@ import { PAIR_REWARD_LABELS } from "@/lib/engines/eligibility";
 import { getAllSettings } from "@/lib/settings";
 import { formatINR } from "@/lib/money";
 import { PROJECT } from "@/lib/project";
+import { FIXED_BOOKING_AMOUNT, FIXED_DISTRIBUTION_AMOUNT, FIXED_MONTHLY_EMI_AMOUNT, FIXED_PLOT_PRICE } from "@/lib/business-rules";
 
 const labelMap: Record<string, string> = {
   DIRECT_SPONSOR: "Sponsor Income",
@@ -36,7 +37,8 @@ export default async function BusinessPlanPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Project" value={PROJECT.siteName} sub={PROJECT.groupName} />
         <Stat label="Plot Area" value={`${PROJECT.plotAreaSqFt} sq ft`} sub={`${formatINR(PROJECT.ratePerSqFt)} per sq ft`} />
-        <Stat label="Plot Value" value={formatINR(Number(settings.plot_price))} sub={`Booking ${formatINR(Number(settings.booking_amount))}`} />
+        <Stat label="Fixed Plot Price" value={formatINR(FIXED_PLOT_PRICE)} sub="Same for every plot" />
+        <Stat label="Flat Payment Unit" value={formatINR(FIXED_MONTHLY_EMI_AMOUNT)} sub={`Booking and distribution ${formatINR(FIXED_BOOKING_AMOUNT)} / ${formatINR(FIXED_DISTRIBUTION_AMOUNT)}`} />
         <Stat label="Total Income Pool" value={formatINR(totalIncome)} sub="Sponsor + level income" />
       </div>
 

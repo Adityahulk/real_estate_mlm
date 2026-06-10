@@ -9,34 +9,20 @@ export interface EmiRow {
 }
 
 export interface EmiScheduleInput {
-  plotPrice: Decimal.Value;
-  bookingAmount: Decimal.Value;
+  installmentAmount: Decimal.Value;
   numInstallments: number;
   startDate: Date; // first EMI due date (usually 1 month after booking)
   payByDays: number; // pay-by = dueDate - payByDays
 }
 
-// Generates the post-booking EMI schedule. The sum of all installments equals
-// (plotPrice - bookingAmount) exactly — the last installment absorbs any
-// rounding remainder so the member never over/under pays by a paisa.
+// Plot value is reference-only; every operational EMI is the same flat amount.
 export function generateInstallmentSchedule(input: EmiScheduleInput): EmiRow[] {
   const { numInstallments, startDate, payByDays } = input;
-  const remaining = money(input.plotPrice).minus(money(input.bookingAmount));
+  const amount = round2(money(input.installmentAmount));
   if (numInstallments <= 0) return [];
 
-  const baseRaw = remaining.div(numInstallments);
-  const base = round2(baseRaw);
-
   const rows: EmiRow[] = [];
-  let accumulated = money(0);
   for (let i = 1; i <= numInstallments; i++) {
-    let amount: Decimal;
-    if (i < numInstallments) {
-      amount = base;
-      accumulated = accumulated.plus(base);
-    } else {
-      amount = round2(remaining.minus(accumulated)); // last absorbs remainder
-    }
     const dueDate = addMonths(startDate, i - 1);
     const payByDate = addDays(dueDate, -payByDays);
     rows.push({ installmentNo: i, amountDue: amount, dueDate, payByDate });

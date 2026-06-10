@@ -5,6 +5,7 @@ import { bulkCreatePlotsAction, createPlotAction, updatePlotAction, updatePlotDo
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Field, Input, Select } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { FIXED_PLOT_PRICE } from "@/lib/business-rules";
 
 const plotTone = { AVAILABLE: "success", BOOKED: "warning", SOLD: "brand", DRAW_WON: "brand" } as const;
 
@@ -25,11 +26,11 @@ export default async function PlotsPage({ searchParams }: { searchParams: Promis
         <CardHeader><CardTitle>Add Plot</CardTitle></CardHeader>
         <CardContent>
           <StatefulForm action={createPlotAction}>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Plot Number"><Input name="plotNumber" placeholder="P021" /></Field>
-              <Field label="Plot Price"><Input name="plotPrice" inputMode="numeric" defaultValue="300240" /></Field>
               <Field label="Location Block"><Input name="locationBlock" placeholder="Block A" /></Field>
             </div>
+            <p className="mb-3 text-xs text-muted-foreground">Every plot has a fixed price of {formatINR(FIXED_PLOT_PRICE)}.</p>
             <SubmitButton>Add Plot</SubmitButton>
           </StatefulForm>
         </CardContent>
@@ -85,7 +86,7 @@ export default async function PlotsPage({ searchParams }: { searchParams: Promis
                   <input type="hidden" name="id" value={p.id} />
                   <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <Field label="Plot Number"><Input name="plotNumber" defaultValue={p.plotNumber} /></Field>
-                    <Field label="Plot Price"><Input name="plotPrice" defaultValue={p.plotPrice.toString()} inputMode="numeric" /></Field>
+                    <Field label="Fixed Plot Price"><Input value={FIXED_PLOT_PRICE} readOnly aria-readonly="true" /></Field>
                     <Field label="Status">
                       <Select name="status" defaultValue={p.status}>
                         <option value="AVAILABLE">Available</option>

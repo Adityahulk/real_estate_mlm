@@ -5,6 +5,7 @@ import { visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
 import { Prisma } from "@prisma/client";
+import { FIXED_BOOKING_AMOUNT, FIXED_MONTHLY_EMI_AMOUNT } from "../business-rules";
 
 export const COMPANY_ROOT_MEMBER_ID = "COMPANY";
 
@@ -90,7 +91,6 @@ export async function createMemberApplication(input: RegisterInput) {
 
 export async function approveMemberApplication(args: {
   applicationId: string;
-  tokenAmount: number;
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "OFFLINE";
   plotNumber: string;
   referenceNumber?: string;
@@ -173,14 +173,14 @@ export async function approveMemberApplication(args: {
     }
 
     if (application.paymentPlan === "INSTALLMENT") {
-      await createInstallmentScheduleTx(tx, member.id, plot.plotPrice);
+      await createInstallmentScheduleTx(tx, member.id);
     }
 
     const payment = await tx.payment.create({
       data: {
         memberId: member.id,
         paymentType: "BOOKING",
-        amount: new Prisma.Decimal(args.tokenAmount),
+        amount: new Prisma.Decimal(FIXED_BOOKING_AMOUNT),
         paymentMode: args.paymentMode,
         referenceNumber: args.referenceNumber,
         status: "PENDING",
@@ -228,17 +228,13 @@ async function syncMemberRankTx(tx: Prisma.TransactionClient, memberId: string, 
 
 export async function createInstallmentScheduleTx(
   tx: Prisma.TransactionClient,
-  memberId: string,
-  plotPrice: Prisma.Decimal
+  memberId: string
 ) {
-  const plotPriceNum = plotPrice.toNumber();
-  const booking = await getNumberSetting("booking_amount");
   const num = await getNumberSetting("num_installments");
   const payByDays = await getNumberSetting("emi_pay_by_days_before");
   const start = addMonths(new Date(), 1);
   const rows = generateInstallmentSchedule({
-    plotPrice: plotPriceNum,
-    bookingAmount: booking,
+    installmentAmount: FIXED_MONTHLY_EMI_AMOUNT,
     numInstallments: num,
     startDate: start,
     payByDays,

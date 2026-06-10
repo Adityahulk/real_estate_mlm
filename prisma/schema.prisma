@@ -210,7 +210,7 @@ model Plot {
   id                   String     @id @default(uuid())
   plotNumber           String     @unique
   plotSize             String     @default("12x36")
-  plotPrice            Decimal    @db.Decimal(12, 2)
+  plotPrice            Decimal    @default(300000) @db.Decimal(12, 2)
   developmentCharges   Decimal    @default(0) @db.Decimal(12, 2)
   documentationCharges Decimal    @default(0) @db.Decimal(12, 2)
   locationBlock        String?

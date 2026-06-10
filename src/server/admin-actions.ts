@@ -14,6 +14,7 @@ import { storage } from "@/lib/integrations";
 // formatINR removed — processDuePayouts no longer returns paidNow amount
 import { Prisma } from "@prisma/client";
 import { SETTING_META, type SettingKey } from "@/lib/settings";
+import { FIXED_BOOKING_AMOUNT, FIXED_PLOT_PRICE } from "@/lib/business-rules";
 
 async function adminId(): Promise<string> {
   const s = await getAdminSession();
@@ -70,7 +71,6 @@ export async function rejectKycFormAction(formData: FormData) {
 
 const approveApplicationSchema = z.object({
   applicationId: z.string().min(1),
-  tokenAmount: z.coerce.number().positive(),
   paymentMode: z.enum(["CASH", "UPI", "BANK_TRANSFER", "OFFLINE"]),
   plotNumber: z.string().trim().min(1, "Enter customer selected plot number"),
   referenceNumber: z.string().optional(),
@@ -90,7 +90,7 @@ export async function approveApplicationAction(_prev: { error?: string; success?
         action: "MEMBER_APPLICATION_APPROVE",
         entity: "MemberApplication",
         entityId: parsed.data.applicationId,
-        after: { memberId: member.memberId, tokenAmount: parsed.data.tokenAmount },
+        after: { memberId: member.memberId, tokenAmount: FIXED_BOOKING_AMOUNT },
       },
     });
     revalidatePath("/admin");
@@ -199,7 +199,6 @@ export async function recordOfflinePaymentAction(_prev: { error?: string } | und
 
 const plotSchema = z.object({
   plotNumber: z.string().min(1),
-  plotPrice: z.coerce.number().positive(),
   developmentCharges: z.coerce.number().min(0).default(0),
   documentationCharges: z.coerce.number().min(0).default(0),
   locationBlock: z.string().optional(),
@@ -217,7 +216,7 @@ export async function createPlotAction(_prev: { error?: string } | undefined, fo
   await prisma.plot.create({
     data: {
       plotNumber: d.plotNumber,
-      plotPrice: new Prisma.Decimal(d.plotPrice),
+      plotPrice: new Prisma.Decimal(FIXED_PLOT_PRICE),
       developmentCharges: new Prisma.Decimal(d.developmentCharges),
       documentationCharges: new Prisma.Decimal(d.documentationCharges),
       locationBlock: d.locationBlock,
@@ -248,7 +247,7 @@ export async function bulkCreatePlotsAction(_prev: { error?: string; success?: s
   );
   if (!numbers.length) return { error: "Enter at least one plot number" };
 
-  const defaultPrice = new Prisma.Decimal("300240");
+  const defaultPrice = new Prisma.Decimal(FIXED_PLOT_PRICE);
   const existing = await prisma.plot.findMany({
     where: { plotNumber: { in: numbers } },
     select: { plotNumber: true },
@@ -296,7 +295,7 @@ export async function updatePlotAction(formData: FormData) {
     where: { id: d.id },
     data: {
       plotNumber: d.plotNumber,
-      plotPrice: new Prisma.Decimal(d.plotPrice),
+      plotPrice: new Prisma.Decimal(FIXED_PLOT_PRICE),
       developmentCharges: new Prisma.Decimal(d.developmentCharges),
       documentationCharges: new Prisma.Decimal(d.documentationCharges),
       locationBlock: d.locationBlock,

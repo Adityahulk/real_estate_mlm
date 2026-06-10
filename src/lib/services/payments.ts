@@ -8,6 +8,7 @@ import { storage } from "../integrations";
 import { formatINR, applyAdminCharge, round2 } from "../money";
 import { addDays } from "../engines/emi";
 import { createCashbackCreditsTx } from "./operations";
+import { COMMISSION_PLAN_VALUE, FIXED_DISTRIBUTION_AMOUNT } from "../business-rules";
 
 // The single confirmation path used by BOTH online (webhook) and offline (admin)
 // payments. Idempotent: re-running on an already-verified payment is a no-op.
@@ -19,7 +20,6 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
   if (!payment) throw new Error("Payment not found");
   if (payment.status === "VERIFIED") return payment; // idempotent
 
-  const plotPrice = payment.member.plot?.plotPrice ?? new Prisma.Decimal(0);
   const pointRate = await getNumberSetting("point_to_inr_rate");
   const adminChargePct = 5;
 
@@ -59,10 +59,10 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
       maxDepth: MAX_SPONSOR_DEPTH,
     });
 
-    if (chain.length && plotPrice.gt(0)) {
+    if (chain.length) {
       const lines = computeCommissionLines({
-        amountPaid: payment.amount.toNumber(),
-        plotPrice: plotPrice.toNumber(),
+        amountPaid: FIXED_DISTRIBUTION_AMOUNT,
+        plotPrice: COMMISSION_PLAN_VALUE,
         uplineChain: chain,
         rules: DEFAULT_COMMISSION_RULES,
       });

@@ -26,10 +26,9 @@ export interface CommissionLine {
   points: Decimal;
 }
 
-// CANONICAL FORMULA (authoritative — proportional to plot price):
-//   points = fullAmount * (amountPaid / plotPrice)
-// This is identical to (rate * amountPaid) but pins totals to round numbers and
-// guarantees the lifetime sum of each income type equals its fullAmount exactly.
+// The caller supplies the confirmed flat operational payment unit and plan
+// value. Customer-facing square-foot adjusted plot values must never be passed
+// into this engine.
 //
 // The engine walks the SPONSOR chain (not the tree). uplineChain[0] is the
 // paying member's direct sponsor (depth 1), [1] is depth 2, etc. For each rule

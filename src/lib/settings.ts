@@ -3,8 +3,6 @@ import { prisma } from "./db";
 // Default business config. Every "pending client question" number lives here,
 // not in code. Editable at runtime via Admin -> System Settings.
 export const SETTING_DEFAULTS = {
-  plot_price: "300240",
-  booking_amount: "10000",
   num_installments: "29",
   cashback_rate_pct: "3",
   cashback_months: "34",
@@ -24,8 +22,6 @@ export const SETTING_DEFAULTS = {
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 
 export const SETTING_META: Record<SettingKey, { label: string; type: "NUMBER" | "BOOLEAN" | "STRING" }> = {
-  plot_price: { label: "Plot Price (₹)", type: "NUMBER" },
-  booking_amount: { label: "Booking Amount (₹)", type: "NUMBER" },
   num_installments: { label: "Number of EMI Installments", type: "NUMBER" },
   cashback_rate_pct: { label: "Cashback Rate (% / month)", type: "NUMBER" },
   cashback_months: { label: "Cashback Duration (months)", type: "NUMBER" },

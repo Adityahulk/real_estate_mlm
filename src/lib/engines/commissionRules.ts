@@ -1,8 +1,8 @@
 import type { CommissionRule } from "./commission";
 
 // Default commission rule table (spec v5.0 Part 1.5 — CONFIRMED).
-// Total = 22% of plot price = ₹66,000. Full amounts are based on a ₹3,00,000
-// plot; the engine scales them proportionally to each payment.
+// Total = ₹66,000 across 30 fixed ₹10,000 operational payment units. Reference
+// plot values based on square feet are intentionally excluded.
 //
 // CONFIRMED with client: sponsor income and level income STACK on the same
 // uplines — depth 1 earns both DIRECT_SPONSOR (10%) and LEVEL_1 (1%), depth 2

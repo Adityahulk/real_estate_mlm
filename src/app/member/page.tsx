@@ -67,7 +67,7 @@ export default async function MemberDashboard() {
           <CardContent className="space-y-1 text-sm">
             <Row k="Plot Number" v={me.plot?.plotNumber ?? "—"} />
             <Row k="Size" v={me.plot?.plotSize ?? "—"} />
-            <Row k="Price" v={me.plot ? formatINR(me.plot.plotPrice) : "—"} />
+            <Row k="Fixed Plot Price" v={me.plot ? formatINR(me.plot.plotPrice) : "—"} />
             <Row k="Location" v={me.plot?.locationBlock ?? "—"} />
             <Row k="Status" v={<Badge tone={me.plot ? "brand" : "neutral"}>{me.plot?.status ?? "AWAITING ACTIVATION"}</Badge>} />
           </CardContent>

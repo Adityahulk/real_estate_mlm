@@ -7,8 +7,7 @@ const sumRows = (rows: { amountDue: Decimal }[]) =>
 
 describe("EMI schedule generator", () => {
   const rows = generateInstallmentSchedule({
-    plotPrice: 300000,
-    bookingAmount: 10000,
+    installmentAmount: 10000,
     numInstallments: 29,
     startDate: new Date("2026-07-01"),
     payByDays: 5,
@@ -18,7 +17,7 @@ describe("EMI schedule generator", () => {
     expect(rows.length).toBe(29);
   });
 
-  it("sums to exactly (plotPrice - booking)", () => {
+  it("sums to exactly 29 flat ₹10,000 installments", () => {
     expect(sumRows(rows)).toBe(290000);
   });
 
@@ -33,15 +32,14 @@ describe("EMI schedule generator", () => {
     expect(diff).toBe(5);
   });
 
-  it("absorbs rounding remainder in the last installment", () => {
-    // 290000 / 30 is not clean -> last row differs but total stays exact
+  it("ignores square-foot adjusted plot values by accepting only the flat installment amount", () => {
     const r = generateInstallmentSchedule({
-      plotPrice: 300000,
-      bookingAmount: 10000,
+      installmentAmount: 10000,
       numInstallments: 30,
       startDate: new Date("2026-07-01"),
       payByDays: 5,
     });
-    expect(sumRows(r)).toBe(290000);
+    expect(sumRows(r)).toBe(300000);
+    expect(r.every((row) => row.amountDue.toNumber() === 10000)).toBe(true);
   });
 });

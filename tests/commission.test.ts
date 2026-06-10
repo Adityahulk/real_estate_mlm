@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeCommissionLines, type CommissionRule } from "@/lib/engines/commission";
 import { DEFAULT_COMMISSION_RULES } from "@/lib/engines/commissionRules";
+import { COMMISSION_PLAN_VALUE, FIXED_DISTRIBUTION_AMOUNT } from "@/lib/business-rules";
 
 const rules: CommissionRule[] = DEFAULT_COMMISSION_RULES;
 
@@ -67,5 +68,19 @@ describe("commission engine — lifetime totals", () => {
       total += lines.find((l) => l.incomeType === "DIRECT_SPONSOR")!.points.toNumber();
     }
     expect(total).toBe(30000);
+  });
+});
+
+describe("fixed operational distribution unit", () => {
+  it("uses ₹10,000 even when the customer-facing payment reference is ₹10,008.28", () => {
+    const customerReferenceAmount = 10008.28;
+    expect(customerReferenceAmount).not.toBe(FIXED_DISTRIBUTION_AMOUNT);
+    const lines = computeCommissionLines({
+      amountPaid: FIXED_DISTRIBUTION_AMOUNT,
+      plotPrice: COMMISSION_PLAN_VALUE,
+      uplineChain: chain,
+      rules,
+    });
+    expect(lines.reduce((sum, line) => sum + line.points.toNumber(), 0)).toBe(2200);
   });
 });
