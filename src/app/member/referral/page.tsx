@@ -45,7 +45,7 @@ export default async function ReferralPage() {
         <CardContent className="space-y-1 text-sm">
           {applications.map((application) => (
             <div key={application.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>{application.mobile} · {application.fullName}</span>
+              <span>{application.applicationCode} · {application.fullName}</span>
               <span className="text-muted-foreground">{application.createdAt.toISOString().slice(0, 10)}</span>
             </div>
           ))}

@@ -21,7 +21,7 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
 
   const plotPrice = payment.member.plot?.plotPrice ?? new Prisma.Decimal(0);
   const pointRate = await getNumberSetting("point_to_inr_rate");
-  const adminChargePct = await getNumberSetting("admin_charge_pct");
+  const adminChargePct = 5;
 
   await prisma.$transaction(async (tx) => {
     // 1. Mark payment verified.

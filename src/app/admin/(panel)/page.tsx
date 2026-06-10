@@ -41,7 +41,7 @@ export default async function AdminOverview() {
         <CardHeader>
           <CardTitle>New Member Approvals ({applications.length})</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Free members can already log in using their mobile member ID. After collecting the token amount, enter the customer&apos;s selected available plot number to activate their plot and place them in the paid binary tree.
+            Free members can already log in and refer others using their auto-generated Member ID. After collecting the token amount, enter the customer&apos;s selected available plot number to activate their plot and place them in the paid binary tree.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -51,7 +51,7 @@ export default async function AdminOverview() {
                 <div><span className="text-muted-foreground">Applicant:</span> <b>{application.fullName}</b></div>
                 <div><span className="text-muted-foreground">Mobile:</span> <b>{application.mobile}</b></div>
                 <div><span className="text-muted-foreground">Referred by:</span> <b>{application.sponsor ? `${application.sponsor.memberId} · ${application.sponsor.fullName}` : application.referrerApplication ? `${application.referrerApplication.applicationCode} · ${application.referrerApplication.fullName}` : "No referrer"}</b></div>
-                <div><span className="text-muted-foreground">Free Member ID:</span> <b>{application.mobile}</b></div>
+                <div><span className="text-muted-foreground">Member ID:</span> <b>{application.applicationCode}</b></div>
                 <div><span className="text-muted-foreground">Nominee:</span> <b>{application.nomineeName ?? "—"} · {application.nomineeRelation ?? "—"} · {application.nomineePhone ?? "—"}</b></div>
               </div>
               <StatefulForm action={approveApplicationAction}>

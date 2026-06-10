@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { findBfsPlacement, ancestorIncrements, buildSponsorChain, type TreeNode } from "@/lib/engines/tree";
+import { nextMemberId } from "@/lib/services/members";
 
 describe("binary tree BFS placement", () => {
   it("first member goes LEFT of root", () => {
@@ -22,6 +23,23 @@ describe("binary tree BFS placement", () => {
       { id: "m2", treeParentId: "root", treeSide: "RIGHT" },
     ];
     expect(findBfsPlacement(nodes, "root")).toEqual({ parentId: "m1", side: "LEFT", level: 2 });
+  });
+
+  it("places 19 members in one complete left-to-right tree", () => {
+    const nodes: TreeNode[] = [{ id: "m1", treeParentId: null, treeSide: null }];
+    for (let i = 2; i <= 19; i++) {
+      const placement = findBfsPlacement(nodes, "m1");
+      nodes.push({ id: `m${i}`, treeParentId: placement.parentId, treeSide: placement.side });
+    }
+    expect(nodes.filter((node) => node.treeParentId).length).toBe(18);
+    expect(nodes.find((node) => node.id === "m19")).toMatchObject({ treeParentId: "m9", treeSide: "RIGHT" });
+  });
+});
+
+describe("auto-generated member IDs", () => {
+  it("starts at SSV000001 and increments predictably", () => {
+    expect(nextMemberId()).toBe("SSV000001");
+    expect(nextMemberId("SSV000019")).toBe("SSV000020");
   });
 });
 

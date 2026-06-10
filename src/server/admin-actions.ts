@@ -96,7 +96,7 @@ export async function approveApplicationAction(_prev: { error?: string; success?
     revalidatePath("/admin");
     revalidatePath("/admin/members");
     revalidatePath("/admin/plots");
-    return { success: `Approved, collected booking amount, and activated plot ${member.memberId}` };
+    return { success: `Approved member ${member.memberId}, collected booking amount, and activated plot ${parsed.data.plotNumber.toUpperCase()}` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Approval failed" };
   }

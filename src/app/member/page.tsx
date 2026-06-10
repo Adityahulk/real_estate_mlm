@@ -25,7 +25,7 @@ export default async function MemberDashboard() {
       {!me.plotId && (
         <Card className="border-brand/40 bg-brand/5 p-4">
           <div className="font-medium">Your free member account is active</div>
-          <div className="text-sm text-muted-foreground">You can log in and refer others now. Your mobile number is your member ID until admin collects payment, assigns your chosen plot, and places you in the paid binary tree.</div>
+          <div className="text-sm text-muted-foreground">You can log in and refer others now using your auto-generated member ID as the Sponsor ID. Admin will later assign your selected plot and place you in the paid binary tree.</div>
         </Card>
       )}
 

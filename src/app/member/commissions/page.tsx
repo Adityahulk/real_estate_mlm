@@ -44,7 +44,7 @@ export default async function CommissionsPage() {
         <CardHeader>
           <CardTitle>Commission Ledger</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Income is transferred the next day after each verified payment, minus a 5% admin charge. Net = Gross × 0.95.
+            A positive 5% admin deduction is applied to gross income. Net payable = Gross income − Admin deduction.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -55,20 +55,23 @@ export default async function CommissionsPage() {
                 <th className="px-4 py-2">From</th>
                 <th className="px-4 py-2">Type</th>
                 <th className="px-4 py-2">Gross</th>
-                <th className="px-4 py-2">Net (−5%)</th>
+                <th className="px-4 py-2">Admin Deduction (5%)</th>
+                <th className="px-4 py-2">Net Payable</th>
                 <th className="px-4 py-2">Status</th>
               </tr>
             </thead>
             <tbody>
               {ledger.map((l) => {
                 const gross = l.cashAmount.toNumber();
-                const net = Math.round(gross * 0.95 * 100) / 100;
+                const adminDeduction = Math.round(gross * 0.05 * 100) / 100;
+                const net = Math.round((gross - adminDeduction) * 100) / 100;
                 return (
                   <tr key={l.id} className="border-b last:border-0">
                     <td className="px-4 py-2">{l.createdAt.toISOString().slice(0, 10)}</td>
                     <td className="px-4 py-2">{l.sourceMember.memberId}</td>
                     <td className="px-4 py-2">{l.incomeType.replace(/_/g, " ")}</td>
                     <td className="px-4 py-2">{formatINR(gross)}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{formatINR(adminDeduction)}</td>
                     <td className="px-4 py-2 font-medium">{formatINR(net)}</td>
                     <td className="px-4 py-2">
                       <Badge tone={tone[l.status]}>{l.status === "HOLD" ? "ON HOLD" : l.status}</Badge>
@@ -76,7 +79,7 @@ export default async function CommissionsPage() {
                   </tr>
                 );
               })}
-              {ledger.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No income yet. Share your referral link to start earning.</td></tr>}
+              {ledger.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No income yet. Share your referral link to start earning.</td></tr>}
             </tbody>
           </table>
         </CardContent>

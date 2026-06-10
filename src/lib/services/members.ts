@@ -44,9 +44,10 @@ export async function createMemberApplication(input: RegisterInput) {
 
   const passwordHash = await hashPassword(input.password);
   return prisma.$transaction(async (tx) => {
+    const memberId = await generateMemberIdTx(tx);
     const member = await tx.member.create({
       data: {
-        memberId: input.mobile,
+        memberId,
         fullName: input.fullName,
         mobile: input.mobile,
         whatsapp: input.whatsapp ?? input.mobile,
@@ -78,7 +79,7 @@ export async function createMemberApplication(input: RegisterInput) {
         nomineeName: input.nomineeName,
         nomineeRelation: input.nomineeRelation,
         nomineePhone: input.nomineePhone,
-        applicationCode: input.mobile,
+        applicationCode: memberId,
         sponsorId: sponsor.id,
         paymentPlan: input.paymentPlan ?? "INSTALLMENT",
       },
@@ -102,7 +103,7 @@ export async function approveMemberApplication(args: {
 
     const existingMember = await tx.member.findUnique({ where: { mobile: application.mobile } }) ?? await tx.member.create({
       data: {
-        memberId: application.mobile,
+        memberId: application.applicationCode,
         fullName: application.fullName,
         mobile: application.mobile,
         whatsapp: application.whatsapp,
@@ -129,7 +130,6 @@ export async function approveMemberApplication(args: {
     const member = await tx.member.update({
       where: { id: existingMember.id },
       data: {
-        memberId: plot.plotNumber,
         plotId: plot.id,
         treeParentId: placement?.parentId,
         treeSide: placement?.side as Side | undefined,
@@ -194,6 +194,22 @@ export async function approveMemberApplication(args: {
 
     return { member, payment };
   });
+}
+
+export function nextMemberId(latestMemberId?: string | null): string {
+  const next = Number(latestMemberId?.slice(3) || "0") + 1;
+  return `SSV${String(next).padStart(6, "0")}`;
+}
+
+async function generateMemberIdTx(tx: Prisma.TransactionClient): Promise<string> {
+  // Serialize ID allocation so simultaneous registrations cannot receive the same ID.
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(72839401)::text`;
+  const latest = await tx.member.findFirst({
+    where: { memberId: { startsWith: "SSV" } },
+    select: { memberId: true },
+    orderBy: { memberId: "desc" },
+  });
+  return nextMemberId(latest?.memberId);
 }
 
 async function syncMemberRankTx(tx: Prisma.TransactionClient, memberId: string, bronzeMinReferrals: number) {

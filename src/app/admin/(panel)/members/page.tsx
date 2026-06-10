@@ -119,9 +119,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
             <Button type="submit">Show Tree</Button>
           </form>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <div className="flex min-w-max justify-center py-4">
-            <BinaryTree node={tree} maxDepth={depth} />
+        <CardContent className="overflow-hidden">
+          <div className="flex justify-center py-4">
+            <BinaryTree node={tree} maxDepth={depth} nodeHref={(memberId) => `/admin/members?root=${encodeURIComponent(memberId)}&depth=7`} />
           </div>
         </CardContent>
       </Card>

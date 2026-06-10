@@ -1,10 +1,12 @@
 import { currentMember, downlineTree } from "@/lib/services/queries";
 import { Card, CardContent, CardHeader, CardTitle, Stat } from "@/components/ui";
-import { BinaryTree } from "@/components/binary-tree";
+import { BinaryTree, type BinaryTreeNode } from "@/components/binary-tree";
 
-export default async function TreePage() {
+export default async function TreePage({ searchParams }: { searchParams: Promise<{ root?: string }> }) {
   const me = await currentMember();
-  const tree = me.plotId ? await downlineTree(me.id, 7) : undefined;
+  const { root: requestedRoot } = await searchParams;
+  const fullTree = me.plotId ? await downlineTree(me.id, 7) : undefined;
+  const tree = requestedRoot ? findNode(fullTree, requestedRoot) : fullTree;
 
   return (
     <div className="space-y-4">
@@ -15,15 +17,21 @@ export default async function TreePage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>My Binary Team</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">Paid members expand downward through Left and Right legs. Empty positions show an add-referral shortcut.</p>
+          <CardTitle>{tree?.memberId ?? me.memberId} Binary Team</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Click any member to open their complete downline. Members fill left to right, top to bottom.</p>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <div className="flex min-w-max justify-center py-2">
-            <BinaryTree node={tree} maxDepth={7} />
+        <CardContent className="overflow-hidden">
+          <div className="flex justify-center py-2">
+            <BinaryTree node={tree} maxDepth={7} nodeHref={(memberId) => `/member/tree?root=${encodeURIComponent(memberId)}`} />
           </div>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function findNode(node: BinaryTreeNode | undefined, memberId: string): BinaryTreeNode | undefined {
+  if (!node) return undefined;
+  if (node.memberId.toLowerCase() === memberId.toLowerCase()) return node;
+  return findNode(node.left, memberId) ?? findNode(node.right, memberId);
 }
