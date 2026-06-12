@@ -10,6 +10,7 @@
     "test": "node -r ./vitest-preload.cjs ./node_modules/vitest/vitest.mjs run --pool=forks",
     "seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "db:reset:demo": "tsx prisma/reset-demo.ts",
     "db:clean:production": "tsx prisma/clean-production.ts"
   },
   "prisma": {

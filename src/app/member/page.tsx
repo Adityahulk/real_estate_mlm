@@ -78,6 +78,7 @@ export default async function MemberDashboard() {
           <CardContent className="space-y-1 text-sm">
             <Row k="KYC" v={<Badge tone={kycTone[me.kycStatus]}>{me.kycStatus.replace("_", " ")}</Badge>} />
             <Row k="My Member ID" v={me.memberId} />
+            <Row k="Mobile Number" v={me.mobile} />
             <Row k="Sponsor ID" v={me.sponsor?.memberId ?? "COMPANY"} />
             <Row k="Rank" v={<Badge tone={rankTone[me.rank]}>{me.rank}</Badge>} />
             <Row k="Draw Eligible" v={<Badge tone={isDrawEligibleNow ? "success" : "neutral"}>{isDrawEligibleNow ? "Yes" : "No"}</Badge>} />

@@ -231,7 +231,7 @@ model Plot {
 
 model Member {
   id                   String              @id @default(uuid())
-  memberId             String              @unique // = plotNumber
+  memberId             String              @unique // Auto-generated permanent ID, e.g. SSV000001
   plotId               String?             @unique
   plot                 Plot?               @relation("MemberPlot", fields: [plotId], references: [id])
   fullName             String

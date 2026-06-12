@@ -24,7 +24,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
             <Input name="password" type="password" placeholder="At least 6 characters" />
           </Field>
           <Field label="Sponsor ID">
-            <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Sponsor member ID or COMPANY" />
+            <Input name="sponsorMemberId" defaultValue={ref ?? ""} placeholder="Generated ID, e.g. SSV000001" />
           </Field>
           <div className="mt-2 text-sm font-semibold">Nominee Details (optional)</div>
           <div className="grid gap-3 sm:grid-cols-3">

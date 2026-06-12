@@ -19,7 +19,7 @@ export interface RegisterInput {
   nomineeName?: string;
   nomineeRelation?: string;
   nomineePhone?: string;
-  sponsorMemberId?: string; // paid member ID/plot number or free application ID
+  sponsorMemberId?: string; // generated Member ID, e.g. SSV000001
   paymentPlan?: "INSTALLMENT" | "CASHBACK";
   preferredSide?: "LEFT" | "RIGHT";
 }
@@ -31,7 +31,7 @@ export async function createMemberApplication(input: RegisterInput) {
     where: { memberId: referralId },
     select: { id: true, isActive: true },
   });
-  if (!sponsor?.isActive) throw new Error("Invalid sponsor ID");
+  if (!sponsor?.isActive) throw new Error("Invalid Sponsor ID. Enter a generated ID such as SSV000001.");
 
   const email = input.email?.trim().toLowerCase() || undefined;
   const memberConditions = [{ mobile: input.mobile }, ...(email ? [{ email }] : [])];

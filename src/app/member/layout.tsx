@@ -28,7 +28,7 @@ export default async function MemberLayout({ children }: { children: React.React
           <Brand href="/member" compact />
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden sm:inline">
-              {member.fullName} · <strong>{member.memberId}</strong>
+              {member.fullName} · <strong>{member.memberId}</strong> · {member.mobile}
             </span>
             <MobileNav items={items} title="Member Menu" />
             <form action={logoutMemberAction}>

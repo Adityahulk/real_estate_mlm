@@ -115,7 +115,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         <CardHeader>
           <CardTitle>Tree Controls</CardTitle>
           <form action="/admin/members" className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Input name="root" defaultValue={params.root ?? root?.memberId ?? ""} placeholder="Root Member ID, e.g. P001" />
+            <Input name="root" defaultValue={params.root ?? root?.memberId ?? ""} placeholder="Root Member ID, e.g. SSV000001" />
             <Select name="depth" defaultValue={String(depth)}>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d} level(s)</option>)}
             </Select>

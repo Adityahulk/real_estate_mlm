@@ -12,6 +12,28 @@ Production-oriented real-estate member, binary-tree, payment, payout, KYC, draw,
 
 The seed is idempotent. It creates business settings, commission rules, and the initial admin only. It never creates demo members, plots, payments, or draws, and it never resets an existing admin password.
 
+## Demo Reset
+
+To clear customer/test data while preserving the admin account and create one
+free demo member:
+
+```bash
+npm run db:reset:demo
+```
+
+Demo login:
+
+```text
+Member ID: SSV000001
+Mobile: 9876543210
+Password: 123456
+Sponsor ID: COMPANY
+```
+
+Normal members choose their own password during registration. Generated Member
+IDs and mobile numbers are always stored separately; only generated Member IDs
+are accepted as Sponsor IDs.
+
 ## Production Requirements
 
 - Set a long random `JWT_SECRET`.

@@ -18,7 +18,7 @@ const registerSchema = z.object({
   mobile: z.string().regex(/^\d{10}$/, "Mobile must be 10 digits"),
   email: z.string().optional().transform((value) => value?.trim() || undefined).pipe(z.string().email("Invalid email").optional()),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  sponsorMemberId: z.string().trim().min(1, "Sponsor ID is required"),
+  sponsorMemberId: z.string().trim().regex(/^(SSV\d{6}|COMPANY)$/i, "Enter a generated Sponsor ID such as SSV000001"),
   nomineeName: z.string().optional(),
   nomineeRelation: z.string().optional(),
   nomineePhone: z.string().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
