@@ -4,10 +4,9 @@ import type { CommissionRule } from "./commission";
 // Total = ₹66,000 across 30 fixed ₹10,000 operational payment units. Reference
 // plot values based on square feet are intentionally excluded.
 //
-// CONFIRMED with client: sponsor income and level income STACK on the same
-// uplines — depth 1 earns both DIRECT_SPONSOR (10%) and LEVEL_1 (1%), depth 2
-// earns CO_SPONSOR (2%) + LEVEL_2 (1%), etc. Because these are data, changing
-// the model is a seed edit, not a code change.
+// Sponsor income follows the referral chain. Level income follows actual binary
+// placement, so an active member earns level income from paid IDs physically
+// below them even when they personally sponsored nobody.
 //
 // Per ₹10,000 payment (ratio 1/30): Direct 1000, Co 200, Super 100,
 // L1–L5 100 each, L6 200, L7 200 → ₹2,200/payment, ₹66,000 lifetime.

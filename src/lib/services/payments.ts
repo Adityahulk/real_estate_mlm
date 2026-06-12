@@ -1,6 +1,6 @@
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
-import { computeCommissionLines } from "../engines/commission";
+import { computeProgramCommissionLines } from "../engines/commission";
 import { DEFAULT_COMMISSION_RULES, MAX_SPONSOR_DEPTH } from "../engines/commissionRules";
 import { buildSponsorChain } from "../engines/tree";
 import { getNumberSetting } from "../settings";
@@ -50,81 +50,15 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
       await createCashbackCreditsTx(tx, payment.memberId, payment.member.plot.plotPrice, payment.paymentDate);
     }
 
-    // 4. Commission engine — walk the SPONSOR chain and post points.
-    const sponsorRows = await tx.member.findMany({ select: { id: true, sponsorId: true } });
-    const sponsorOf = new Map(sponsorRows.map((m) => [m.id, m.sponsorId]));
-    const chain = buildSponsorChain({
-      startSponsorId: payment.member.sponsorId,
-      sponsorOf,
-      maxDepth: MAX_SPONSOR_DEPTH,
+    // 4. Sponsor income follows referrals; level income follows tree placement.
+    await postPaymentCommissionsTx(tx, {
+      paymentId: payment.id,
+      sourceMemberId: payment.memberId,
+      sponsorId: payment.member.sponsorId,
+      treeParentId: payment.member.treeParentId,
+      pointRate,
+      adminChargePct,
     });
-
-    if (chain.length) {
-      const lines = computeCommissionLines({
-        amountPaid: FIXED_DISTRIBUTION_AMOUNT,
-        plotPrice: COMMISSION_PLAN_VALUE,
-        uplineChain: chain,
-        rules: DEFAULT_COMMISSION_RULES,
-      });
-
-      // KYC status of every beneficiary decides PENDING vs ON_HOLD.
-      const beneficiaryIds = Array.from(new Set(lines.map((l) => l.beneficiaryId)));
-      const beneficiaries = await tx.member.findMany({
-        where: { id: { in: beneficiaryIds } },
-        select: { id: true, kycStatus: true },
-      });
-      const kycOf = new Map(beneficiaries.map((b) => [b.id, b.kycStatus]));
-      const payByDate = addDays(new Date(), 1); // next-day transfer
-
-      // Group commission lines per beneficiary -> one payout each.
-      for (const beneficiaryId of beneficiaryIds) {
-        const myLines = lines.filter((l) => l.beneficiaryId === beneficiaryId);
-        const grossPoints = myLines.reduce((a, l) => a.plus(l.points), new Prisma.Decimal(0));
-        const grossCash = round2(grossPoints.mul(pointRate));
-        const { adminCharge, net } = applyAdminCharge(grossCash, adminChargePct);
-        const approved = kycOf.get(beneficiaryId) === "APPROVED";
-        const ledgerStatus = approved ? "POINTS" : "HOLD";
-
-        const payout = await tx.payout.upsert({
-          where: { triggeredById_memberId: { triggeredById: payment.id, memberId: beneficiaryId } },
-          create: {
-            memberId: beneficiaryId,
-            triggeredById: payment.id,
-            grossAmount: new Prisma.Decimal(grossCash.toFixed(2)),
-            adminCharge: new Prisma.Decimal(adminCharge.toFixed(2)),
-            netAmount: new Prisma.Decimal(net.toFixed(2)),
-            payoutDate: payByDate,
-            status: approved ? "PENDING" : "ON_HOLD",
-            onHoldReason: approved ? null : "KYC not approved",
-          },
-          update: {},
-        });
-
-        for (const line of myLines) {
-          const cash = round2(line.points.mul(pointRate));
-          await tx.commissionLedger.upsert({
-            where: {
-              paymentId_beneficiaryId_incomeType: {
-                paymentId: payment.id,
-                beneficiaryId: line.beneficiaryId,
-                incomeType: line.incomeType,
-              },
-            },
-            create: {
-              beneficiaryId: line.beneficiaryId,
-              sourceMemberId: payment.memberId,
-              paymentId: payment.id,
-              incomeType: line.incomeType,
-              pointsEarned: new Prisma.Decimal(line.points.toFixed(2)),
-              cashAmount: new Prisma.Decimal(cash.toFixed(2)),
-              status: ledgerStatus,
-              payoutId: payout.id,
-            },
-            update: {},
-          });
-        }
-      }
-    }
 
     // 5. Recompute draw eligibility for the paying member.
     await recomputeEligibilityTx(tx, payment.memberId);
@@ -148,6 +82,133 @@ export async function confirmPayment(paymentId: string, verifiedById?: string) {
   });
 
   return prisma.payment.findUnique({ where: { id: payment.id } });
+}
+
+async function postPaymentCommissionsTx(
+  tx: Prisma.TransactionClient,
+  args: {
+    paymentId: string;
+    sourceMemberId: string;
+    sponsorId: string | null;
+    treeParentId: string | null;
+    pointRate: number;
+    adminChargePct: number;
+  }
+) {
+  const memberRows = await tx.member.findMany({ select: { id: true, sponsorId: true, treeParentId: true } });
+  const sponsorOf = new Map(memberRows.map((member) => [member.id, member.sponsorId]));
+  const treeParentOf = new Map(memberRows.map((member) => [member.id, member.treeParentId]));
+  const sponsorChain = buildSponsorChain({
+    startSponsorId: args.sponsorId,
+    sponsorOf,
+    maxDepth: MAX_SPONSOR_DEPTH,
+  });
+  const treeAncestorChain = buildSponsorChain({
+    startSponsorId: args.treeParentId,
+    sponsorOf: treeParentOf,
+    maxDepth: MAX_SPONSOR_DEPTH,
+  });
+  const calculatedLines = computeProgramCommissionLines({
+    amountPaid: FIXED_DISTRIBUTION_AMOUNT,
+    plotPrice: COMMISSION_PLAN_VALUE,
+    sponsorChain,
+    treeAncestorChain,
+    rules: DEFAULT_COMMISSION_RULES,
+  });
+  const beneficiaries = await tx.member.findMany({
+    where: { id: { in: Array.from(new Set(calculatedLines.map((line) => line.beneficiaryId))) } },
+    select: { id: true, kycStatus: true, isActive: true, plotId: true },
+  });
+  const activePaidIds = new Set(beneficiaries.filter((beneficiary) => beneficiary.isActive && beneficiary.plotId).map((beneficiary) => beneficiary.id));
+  const lines = calculatedLines.filter((line) => activePaidIds.has(line.beneficiaryId));
+  const beneficiaryIds = Array.from(new Set(lines.map((line) => line.beneficiaryId)));
+  if (!beneficiaryIds.length) return;
+  const kycOf = new Map(beneficiaries.map((beneficiary) => [beneficiary.id, beneficiary.kycStatus]));
+  const payByDate = addDays(new Date(), 1);
+
+  for (const beneficiaryId of beneficiaryIds) {
+    const myLines = lines.filter((line) => line.beneficiaryId === beneficiaryId);
+    const grossPoints = myLines.reduce((total, line) => total.plus(line.points), new Prisma.Decimal(0));
+    const grossCash = round2(grossPoints.mul(args.pointRate));
+    const { adminCharge, net } = applyAdminCharge(grossCash, args.adminChargePct);
+    const approved = kycOf.get(beneficiaryId) === "APPROVED";
+    const ledgerStatus = approved ? "POINTS" : "HOLD";
+
+    const payout = await tx.payout.upsert({
+      where: { triggeredById_memberId: { triggeredById: args.paymentId, memberId: beneficiaryId } },
+      create: {
+        memberId: beneficiaryId,
+        triggeredById: args.paymentId,
+        grossAmount: new Prisma.Decimal(grossCash.toFixed(2)),
+        adminCharge: new Prisma.Decimal(adminCharge.toFixed(2)),
+        netAmount: new Prisma.Decimal(net.toFixed(2)),
+        payoutDate: payByDate,
+        status: approved ? "PENDING" : "ON_HOLD",
+        onHoldReason: approved ? null : "KYC not approved",
+      },
+      update: {},
+    });
+
+    for (const line of myLines) {
+      const cash = round2(line.points.mul(args.pointRate));
+      await tx.commissionLedger.upsert({
+        where: {
+          paymentId_beneficiaryId_incomeType: {
+            paymentId: args.paymentId,
+            beneficiaryId: line.beneficiaryId,
+            incomeType: line.incomeType,
+          },
+        },
+        create: {
+          beneficiaryId: line.beneficiaryId,
+          sourceMemberId: args.sourceMemberId,
+          paymentId: args.paymentId,
+          incomeType: line.incomeType,
+          pointsEarned: new Prisma.Decimal(line.points.toFixed(2)),
+          cashAmount: new Prisma.Decimal(cash.toFixed(2)),
+          status: ledgerStatus,
+          payoutId: payout.id,
+        },
+        update: {},
+      });
+    }
+  }
+}
+
+export async function recalculateUnpaidCommissions() {
+  const pointRate = await getNumberSetting("point_to_inr_rate");
+  const payments = await prisma.payment.findMany({
+    where: { status: "VERIFIED" },
+    include: {
+      member: { select: { sponsorId: true, treeParentId: true } },
+      payouts: { select: { status: true, paidAmount: true } },
+      commissions: { where: { status: "PAID" }, select: { id: true } },
+    },
+    orderBy: { paymentDate: "asc" },
+  });
+  let recalculated = 0;
+  let skippedSettled = 0;
+  for (const payment of payments) {
+    const settled = payment.commissions.length > 0 || payment.payouts.some((payout) => payout.status === "PAID" || payout.paidAmount.gt(0));
+    if (settled) {
+      skippedSettled++;
+      continue;
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.commissionLedger.deleteMany({ where: { paymentId: payment.id } });
+      await tx.payout.deleteMany({ where: { triggeredById: payment.id } });
+      await postPaymentCommissionsTx(tx, {
+        paymentId: payment.id,
+        sourceMemberId: payment.memberId,
+        sponsorId: payment.member.sponsorId,
+        treeParentId: payment.member.treeParentId,
+        pointRate,
+        adminChargePct: 5,
+      });
+    });
+    recalculated++;
+  }
+  return { recalculated, skippedSettled };
 }
 
 export async function recomputeEligibilityTx(tx: Prisma.TransactionClient, memberId: string) {

@@ -58,7 +58,7 @@ export default async function BusinessPlanPage() {
         <Card>
           <CardHeader>
             <CardTitle>Level Income</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Seven-level income is calculated from the same sponsor chain and stacks with sponsor income.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Seven-level income follows actual binary-tree placement. Active members earn the matching level income from paid IDs below them even without direct sponsors.</p>
           </CardHeader>
           <CardContent className="space-y-2">
             {levelRules.map((rule) => (

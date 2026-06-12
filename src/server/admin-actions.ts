@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getAdminSession } from "@/lib/auth";
-import { confirmPayment, recomputeEligibilityTx } from "@/lib/services/payments";
+import { confirmPayment, recalculateUnpaidCommissions, recomputeEligibilityTx } from "@/lib/services/payments";
 import { processDuePayouts, releaseHeldPayouts } from "@/lib/services/payouts";
 import { approveMemberApplication, rebuildPaidBinaryTree } from "@/lib/services/members";
 import { conductDraw, markDrawPrizeClaimed } from "@/lib/services/draws";
@@ -384,6 +384,27 @@ export async function runDailyOperationsAction() {
   await processDueCashbacks();
   await syncAllPairRewards();
   revalidatePath("/admin/operations");
+}
+
+export async function recalculateUnpaidIncomeAction() {
+  const uid = await adminId();
+  try {
+    const result = await recalculateUnpaidCommissions();
+    await prisma.auditLog.create({
+      data: {
+        actorId: uid,
+        action: "RECALCULATE_UNPAID_INCOME",
+        entity: "CommissionLedger",
+        after: result,
+      },
+    });
+    revalidatePath("/admin/operations");
+    revalidatePath("/admin/payouts");
+    revalidatePath("/member/commissions");
+    return { success: `Recalculated ${result.recalculated} verified payment(s). Preserved ${result.skippedSettled} settled payment(s).` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Income recalculation failed" };
+  }
 }
 
 const transferSchema = z.object({

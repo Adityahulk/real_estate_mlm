@@ -46,7 +46,7 @@ export default async function RewardsPage() {
       <Card>
         <CardHeader><CardTitle>7-Level Two-Leg Plan</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Each member has Left and Right legs. After two sponsored members, the 3rd, 4th, and later IDs are placed automatically wherever space is available in the downline, following left-to-right and top-to-bottom placement.
+          Each member has Left and Right legs. After two sponsored members, the 3rd, 4th, and later IDs move to the next available downline positions from left-to-right and top-to-bottom. Sponsor income still goes to the direct sponsor, while level income follows the ID&apos;s actual binary-tree level.
         </CardContent>
       </Card>
     </div>

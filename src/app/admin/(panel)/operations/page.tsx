@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { approveInsuranceClaimAction, rejectInsuranceClaimAction, runDailyOperationsAction, transferPlotAction } from "@/server/admin-actions";
+import { approveInsuranceClaimAction, recalculateUnpaidIncomeAction, rejectInsuranceClaimAction, runDailyOperationsAction, transferPlotAction } from "@/server/admin-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Stat } from "@/components/ui";
 
@@ -13,6 +13,13 @@ export default async function OperationsPage() {
   return <div className="space-y-5">
     <div className="grid gap-4 sm:grid-cols-3"><Stat label="Overdue EMIs" value={overdue}/><Stat label="Pending Cashbacks" value={pendingCashbacks}/><Stat label="Insurance Reviews" value={claims.length}/></div>
     <Card><CardHeader><CardTitle>Daily Operations</CardTitle></CardHeader><CardContent><form action={runDailyOperationsAction}><Button type="submit">Run EMI Status, Reminders & Cashbacks</Button></form></CardContent></Card>
+    <Card>
+      <CardHeader>
+        <CardTitle>Repair Unpaid Income</CardTitle>
+        <p className="mt-1 text-sm text-muted-foreground">Recalculate unpaid sponsor income from referrals and unpaid level income from actual binary-tree placement. Already paid or partially paid payouts are preserved.</p>
+      </CardHeader>
+      <CardContent><StatefulForm action={recalculateUnpaidIncomeAction}><SubmitButton>Recalculate Unpaid Income</SubmitButton></StatefulForm></CardContent>
+    </Card>
     <Card><CardHeader><CardTitle>Transfer Plot / Member ID</CardTitle></CardHeader><CardContent><StatefulForm action={transferPlotAction}><div className="grid gap-3 sm:grid-cols-3">
       <Field label="Member ID"><Select name="memberId">{members.map(m=><option key={m.id} value={m.id}>{m.memberId} · {m.fullName}</option>)}</Select></Field>
       <Field label="New Full Name"><Input name="newFullName"/></Field><Field label="New Mobile"><Input name="newMobile"/></Field>

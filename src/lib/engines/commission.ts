@@ -29,10 +29,6 @@ export interface CommissionLine {
 // The caller supplies the confirmed flat operational payment unit and plan
 // value. Customer-facing square-foot adjusted plot values must never be passed
 // into this engine.
-//
-// The engine walks the SPONSOR chain (not the tree). uplineChain[0] is the
-// paying member's direct sponsor (depth 1), [1] is depth 2, etc. For each rule
-// at a given depth, if an upline exists there, a commission line is produced.
 export function computeCommissionLines(args: {
   amountPaid: Decimal.Value;
   plotPrice: Decimal.Value;
@@ -59,4 +55,31 @@ export function computeCommissionLines(args: {
     });
   }
   return lines;
+}
+
+// Sponsor-program income follows the referral chain. Level income follows the
+// physical binary-tree parent chain. They must never share the same chain.
+export function computeProgramCommissionLines(args: {
+  amountPaid: Decimal.Value;
+  plotPrice: Decimal.Value;
+  sponsorChain: string[];
+  treeAncestorChain: string[];
+  rules: CommissionRule[];
+}): CommissionLine[] {
+  const sponsorRules = args.rules.filter((rule) => !rule.incomeType.startsWith("LEVEL_"));
+  const levelRules = args.rules.filter((rule) => rule.incomeType.startsWith("LEVEL_"));
+  return [
+    ...computeCommissionLines({
+      amountPaid: args.amountPaid,
+      plotPrice: args.plotPrice,
+      uplineChain: args.sponsorChain,
+      rules: sponsorRules,
+    }),
+    ...computeCommissionLines({
+      amountPaid: args.amountPaid,
+      plotPrice: args.plotPrice,
+      uplineChain: args.treeAncestorChain,
+      rules: levelRules,
+    }),
+  ];
 }

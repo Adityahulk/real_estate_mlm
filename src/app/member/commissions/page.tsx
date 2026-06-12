@@ -44,7 +44,7 @@ export default async function CommissionsPage() {
         <CardHeader>
           <CardTitle>Commission Ledger</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            A positive 5% admin deduction is applied to gross income. Net payable = Gross income − Admin deduction.
+            Sponsor income follows referrals. Level income follows your actual binary-tree downline. A positive 5% admin deduction is applied to gross income.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -79,7 +79,7 @@ export default async function CommissionsPage() {
                   </tr>
                 );
               })}
-              {ledger.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No income yet. Share your referral link to start earning.</td></tr>}
+              {ledger.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No income yet. Sponsor income follows referrals and level income follows paid IDs placed below you.</td></tr>}
             </tbody>
           </table>
         </CardContent>

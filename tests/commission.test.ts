@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCommissionLines, type CommissionRule } from "@/lib/engines/commission";
+import { computeCommissionLines, computeProgramCommissionLines, type CommissionRule } from "@/lib/engines/commission";
 import { DEFAULT_COMMISSION_RULES } from "@/lib/engines/commissionRules";
 import { COMMISSION_PLAN_VALUE, FIXED_DISTRIBUTION_AMOUNT } from "@/lib/business-rules";
 
@@ -82,5 +82,46 @@ describe("fixed operational distribution unit", () => {
       rules,
     });
     expect(lines.reduce((sum, line) => sum + line.points.toNumber(), 0)).toBe(2200);
+  });
+});
+
+describe("sponsor income and binary level income use separate chains", () => {
+  it("pays level income to tree ancestors even when they did not sponsor the paying member", () => {
+    const lines = computeProgramCommissionLines({
+      amountPaid: 10000,
+      plotPrice: 300000,
+      sponsorChain: ["direct-sponsor"],
+      treeAncestorChain: ["tree-parent", "active-member", "tree-grandparent"],
+      rules,
+    });
+    expect(lines.find((line) => line.incomeType === "DIRECT_SPONSOR")?.beneficiaryId).toBe("direct-sponsor");
+    expect(lines.find((line) => line.incomeType === "LEVEL_1")?.beneficiaryId).toBe("tree-parent");
+    expect(lines.find((line) => line.incomeType === "LEVEL_2")?.beneficiaryId).toBe("active-member");
+    expect(lines.find((line) => line.incomeType === "LEVEL_3")?.beneficiaryId).toBe("tree-grandparent");
+  });
+
+  it("does not create level 4 to level 7 income when only three tree levels exist", () => {
+    const lines = computeProgramCommissionLines({
+      amountPaid: 10000,
+      plotPrice: 300000,
+      sponsorChain: chain,
+      treeAncestorChain: ["l1", "l2", "l3"],
+      rules,
+    });
+    const levelTypes = lines.filter((line) => line.incomeType.startsWith("LEVEL_")).map((line) => line.incomeType);
+    expect(levelTypes).toEqual(["LEVEL_1", "LEVEL_2", "LEVEL_3"]);
+  });
+
+  it("keeps a third direct referral as direct sponsor income but uses its actual tree level", () => {
+    const lines = computeProgramCommissionLines({
+      amountPaid: 10000,
+      plotPrice: 300000,
+      sponsorChain: ["sponsor"],
+      treeAncestorChain: ["placement-parent", "sponsor"],
+      rules,
+    });
+    expect(lines.find((line) => line.incomeType === "DIRECT_SPONSOR")?.beneficiaryId).toBe("sponsor");
+    expect(lines.find((line) => line.incomeType === "LEVEL_2")?.beneficiaryId).toBe("sponsor");
+    expect(lines.some((line) => line.incomeType === "LEVEL_1" && line.beneficiaryId === "sponsor")).toBe(false);
   });
 });
