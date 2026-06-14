@@ -237,9 +237,9 @@ model Member {
   fullName             String
   aadhaarNumber        String? // encrypted
   aadhaarLast4         String?
-  mobile               String              @unique
+  mobile               String
   whatsapp             String?
-  email                String?             @unique
+  email                String?
   passwordHash         String
   sponsorId            String?
   sponsor              Member?             @relation("Sponsor", fields: [sponsorId], references: [id])
@@ -278,6 +278,8 @@ model Member {
 
   @@index([sponsorId])
   @@index([treeParentId])
+  @@index([mobile])
+  @@index([email])
 }
 
 model MemberApplication {
@@ -286,9 +288,9 @@ model MemberApplication {
   fullName              String
   aadhaarNumber         String? // encrypted
   aadhaarLast4          String?
-  mobile                String                  @unique
+  mobile                String
   whatsapp              String?
-  email                 String?                 @unique
+  email                 String?
   passwordHash          String
   nomineeName           String?
   nomineeRelation       String?
@@ -306,6 +308,8 @@ model MemberApplication {
   @@index([status, createdAt])
   @@index([sponsorId])
   @@index([referrerApplicationId])
+  @@index([mobile])
+  @@index([email])
 }
 
 model MemberKyc {

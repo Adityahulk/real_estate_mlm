@@ -59,10 +59,10 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const memberId = loginId.toUpperCase();
 
   let admin;
-  let member;
+  let memberCandidates;
   try {
     admin = loginId.includes("@") ? await prisma.user.findUnique({ where: { email: loginId } }) : null;
-    member = await prisma.member.findFirst({
+    memberCandidates = await prisma.member.findMany({
       where: {
         OR: [
           { memberId },
@@ -80,7 +80,15 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     await setAdminCookie(signAdmin({ sub: admin.id, role: admin.role }));
     redirect("/admin");
   }
-  if (!member || !(await verifyPassword(parsed.data.password, member.passwordHash))) {
+  const passwordMatches = [];
+  for (const candidate of memberCandidates) {
+    if (await verifyPassword(parsed.data.password, candidate.passwordHash)) passwordMatches.push(candidate);
+  }
+  if (passwordMatches.length > 1) {
+    return { error: "Multiple IDs use these contact details. Log in with your generated Member ID." };
+  }
+  const member = passwordMatches[0];
+  if (!member) {
     return { error: "Invalid Member ID, mobile/email, or password" };
   }
   if (!member.isActive) return { error: "Your account is disabled. Contact admin." };
@@ -101,8 +109,8 @@ export async function logoutAdminAction() {
 export async function requestPasswordResetAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
-  const member = await prisma.member.findUnique({ where: { email } });
-  if (!member) return { success: "If this email belongs to a member, a reset OTP has been sent." };
+  const members = await prisma.member.findMany({ where: { email }, select: { id: true } });
+  if (members.length !== 1) return { success: "Contact admin with your generated Member ID to reset your password." };
   const recent = await prisma.otpCode.findFirst({
     where: { target: email, purpose: "RESET", createdAt: { gte: new Date(Date.now() - 60_000) } },
   });
@@ -135,13 +143,15 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
   const password = String(formData.get("password") ?? "");
   if (!z.string().email().safeParse(email).success) return { error: "Enter a valid email address" };
   if (password.length < 6) return { error: "Password must be at least 6 characters" };
+  const members = await prisma.member.findMany({ where: { email }, select: { id: true } });
+  if (members.length !== 1) return { error: "Contact admin with your generated Member ID to reset your password." };
   const otp = await prisma.otpCode.findFirst({
     where: { target: email, purpose: "RESET", consumed: false, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
   });
   if (!otp || otp.codeHash !== sha256(code)) return { error: "Invalid or expired reset code" };
   await prisma.$transaction([
-    prisma.member.update({ where: { email }, data: { passwordHash: await hashPassword(password) } }),
+    prisma.member.update({ where: { id: members[0].id }, data: { passwordHash: await hashPassword(password) } }),
     prisma.otpCode.update({ where: { id: otp.id }, data: { consumed: true } }),
   ]);
   return { success: "Password updated. You can now log in." };

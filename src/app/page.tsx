@@ -16,7 +16,7 @@ const reasons = [
 export default function Home() {
   return (
     <main>
-      <header className="absolute inset-x-0 top-0 z-20">
+      <header className="absolute inset-x-0 top-10 z-20">
         <div className="brand-rule" />
         <div className="mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-lg border bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
           <Brand />
@@ -47,7 +47,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-6xl gap-4 px-6 text-center sm:grid-cols-4">
           <Fact value={`${PROJECT.plotAreaSqFt} Sq.Ft.`} label="Plot Size" />
           <Fact value={`₹${PROJECT.ratePerSqFt}`} label="Rate / Sq.Ft." />
-          <Fact value="₹3,00,240" label="Plot Value" />
+          <Fact value="₹3,00,000" label="Plot Value" />
           <Fact value="₹10,000" label="Monthly EMI" />
         </div>
       </section>
@@ -69,8 +69,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6">
           <SectionTitle eyebrow="Flexible Options" title="Choose Your Payment Plan" text="Easy process, transparent terms, and a secure investment." />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["Payment window: 1st to 25th", "Total plot value ₹3,00,240", "Pay through company QR; admin verifies payment"]} />
-            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,240" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Admin records verified company payments"]} />
+            <Plan label="Plan A" title="EMI Plan" amount="₹10,000" suffix="per month" lines={["Payment window: 1st to 25th", "Total plot value ₹3,00,000", "Pay through company QR; admin verifies payment"]} />
+            <Plan label="Plan B" title="Cashback Plan" amount="₹3,00,000" suffix="full payment" lines={["3% monthly cashback", "Cashback up to 34 months", "Admin records verified company payments"]} />
           </div>
         </div>
       </section>

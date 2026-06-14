@@ -34,14 +34,6 @@ export async function createMemberApplication(input: RegisterInput) {
   if (!sponsor?.isActive) throw new Error("Invalid Sponsor ID. Enter a generated ID such as SSV000001.");
 
   const email = input.email?.trim().toLowerCase() || undefined;
-  const memberConditions = [{ mobile: input.mobile }, ...(email ? [{ email }] : [])];
-  const applicationConditions = [{ mobile: input.mobile }, ...(email ? [{ email }] : [])];
-  const [existingMember, existingApplication] = await Promise.all([
-    prisma.member.findFirst({ where: { OR: memberConditions } }),
-    prisma.memberApplication.findFirst({ where: { OR: applicationConditions } }),
-  ]);
-  if (existingMember) throw new Error("A member with this mobile or email already exists");
-  if (existingApplication) throw new Error("An application with this mobile or email already exists");
 
   const passwordHash = await hashPassword(input.password);
   return prisma.$transaction(async (tx) => {
@@ -101,7 +93,7 @@ export async function approveMemberApplication(args: {
     const application = await tx.memberApplication.findUnique({ where: { id: args.applicationId } });
     if (!application || application.status !== "PENDING") throw new Error("Pending application not found");
 
-    const existingMember = await tx.member.findUnique({ where: { mobile: application.mobile } }) ?? await tx.member.create({
+    const existingMember = await tx.member.findUnique({ where: { memberId: application.applicationCode } }) ?? await tx.member.create({
       data: {
         memberId: application.applicationCode,
         fullName: application.fullName,

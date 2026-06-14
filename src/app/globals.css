@@ -100,6 +100,75 @@ summary:active {
   transform: rotate(45deg);
 }
 
+.achievement-ticker {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid hsl(var(--brand) / 0.35);
+  background: hsl(var(--foreground));
+  color: white;
+}
+
+.achievement-ticker-label {
+  z-index: 1;
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  background: hsl(var(--brand));
+  padding: 0 1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.achievement-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: achievement-scroll 35s linear infinite;
+}
+
+.achievement-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 1.5rem;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.achievement-ticker-item span {
+  color: rgb(255 255 255 / 0.65);
+}
+
+.achievement-ticker-item b {
+  color: #f59e0b;
+  text-transform: uppercase;
+}
+
+.achievement-ticker-item b[data-rank="SILVER"] {
+  color: #e5e7eb;
+}
+
+.achievement-ticker-item b[data-rank="GOLD"] {
+  color: #fde047;
+}
+
+@keyframes achievement-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievement-ticker-track {
+    animation: none;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
