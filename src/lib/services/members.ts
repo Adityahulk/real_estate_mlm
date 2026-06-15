@@ -1,7 +1,7 @@
 import { prisma } from "../db";
 import { hashPassword } from "../password";
 import { findBfsPlacement, findSponsorPlacementRoot, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
-import { visibleRank } from "../engines/eligibility";
+import { achievedRanks, visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
 import { Prisma } from "@prisma/client";
@@ -294,6 +294,19 @@ async function syncMemberRankTx(tx: Prisma.TransactionClient, memberId: string, 
     rightCount: member.rightTeamCount,
   });
   if (rank !== member.rank) await tx.member.update({ where: { id: memberId }, data: { rank } });
+  const ranks = achievedRanks({
+    directReferralCount: member.directReferralCount,
+    bronzeMinReferrals,
+    leftCount: member.leftTeamCount,
+    rightCount: member.rightTeamCount,
+  });
+  for (const achievedRank of ranks) {
+    await tx.rankAchievement.upsert({
+      where: { memberId_rank: { memberId, rank: achievedRank } },
+      create: { memberId, rank: achievedRank },
+      update: {},
+    });
+  }
 }
 
 export async function createInstallmentScheduleTx(

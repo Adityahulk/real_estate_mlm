@@ -142,7 +142,7 @@ function MemberAdminTools() {
     <Card>
       <CardHeader>
         <CardTitle>Password Recovery</CardTitle>
-        <p className="mt-1 text-sm text-muted-foreground">Admin can issue a new password after verifying the member. Use the generated Member ID for the most reliable match.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Old passwords cannot be viewed because they are securely hashed. Admin can issue a new password after verifying the member. Use the generated Member ID for the most reliable match.</p>
       </CardHeader>
       <CardContent>
         <StatefulForm action={adminPasswordRecoveryAction} className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">

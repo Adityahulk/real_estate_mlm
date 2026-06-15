@@ -1,6 +1,6 @@
 import { currentMember } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
-import { DEFAULT_DRAW_PRIZES, eligibleDrawMembers } from "@/lib/services/draws";
+import { DEFAULT_DRAW_PRIZES, memberDrawEligibility } from "@/lib/services/draws";
 import { Badge, Card, CardContent, CardHeader, CardTitle, Stat } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { Gift } from "lucide-react";
@@ -9,7 +9,7 @@ const winnerTone = { WON: "warning", CLAIMED: "success", PENDING_DOCS: "danger" 
 
 export default async function MemberDrawsPage() {
   const member = await currentMember();
-  const [wins, recentDraws, eligiblePool] = await Promise.all([
+  const [wins, recentDraws, drawEligibility] = await Promise.all([
     prisma.drawWinner.findMany({
       where: { memberId: member.id },
       include: { drawEvent: true },
@@ -26,14 +26,14 @@ export default async function MemberDrawsPage() {
       orderBy: { drawNumber: "desc" },
       take: 10,
     }),
-    eligibleDrawMembers(),
+    memberDrawEligibility(member.id),
   ]);
-  const isEligibleNow = eligiblePool.some((eligible) => eligible.id === member.id) && wins.length === 0;
+  const isEligibleNow = drawEligibility.eligible;
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Draw Eligible" value={isEligibleNow ? "Yes" : "No"} sub={wins.length ? "Previous winners do not re-enter" : "Same live pool as admin"} />
+        <Stat label="Draw Eligible" value={isEligibleNow ? "Yes" : "No"} sub={drawEligibility.reason} />
         <Stat label="Prizes Won" value={wins.length} />
         <Stat label="Completed Draws" value={recentDraws.length} />
       </div>

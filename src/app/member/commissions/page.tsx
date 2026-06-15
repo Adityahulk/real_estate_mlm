@@ -3,11 +3,13 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { MemberWithdrawalCard } from "@/components/member-withdrawal-card";
+import Link from "next/link";
 
 const tone = { PAID: "success", POINTS: "warning", APPROVED: "brand", HOLD: "danger" } as const;
 
-export default async function CommissionsPage() {
+export default async function CommissionsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   const me = await currentMember();
+  const selectedType = (await searchParams).type ?? "ALL";
   const d = await memberDashboard(me.id);
   const ledger = await prisma.commissionLedger.findMany({
     where: { beneficiaryId: me.id },
@@ -23,14 +25,19 @@ export default async function CommissionsPage() {
     .filter(([type]) => type.startsWith("LEVEL_"))
     .reduce((sum, [, amount]) => sum + amount, 0);
   const totalIncome = ledger.reduce((sum, line) => sum + line.cashAmount.toNumber(), 0);
+  const filteredLedger = ledger.filter((line) => {
+    if (selectedType === "ALL") return true;
+    if (selectedType === "LEVEL") return line.incomeType.startsWith("LEVEL_");
+    return line.incomeType === selectedType;
+  });
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <Stat label="Sponsor Income" value={formatINR(incomeByType.DIRECT_SPONSOR ?? 0)} />
-        <Stat label="Co-Sponsor Income" value={formatINR(incomeByType.CO_SPONSOR ?? 0)} />
-        <Stat label="Super Sponsor Income" value={formatINR(incomeByType.SUPER_SPONSOR ?? 0)} />
-        <Stat label="Level Income" value={formatINR(levelIncome)} sub="Level 1 to Level 7" />
-        <Stat label="Total Income" value={formatINR(totalIncome)} />
+        <Link href="/member/commissions?type=DIRECT_SPONSOR"><Stat label="Sponsor Income" value={formatINR(incomeByType.DIRECT_SPONSOR ?? 0)} sub="Click for history" /></Link>
+        <Link href="/member/commissions?type=CO_SPONSOR"><Stat label="Co-Sponsor Income" value={formatINR(incomeByType.CO_SPONSOR ?? 0)} sub="Click for history" /></Link>
+        <Link href="/member/commissions?type=SUPER_SPONSOR"><Stat label="Super Sponsor Income" value={formatINR(incomeByType.SUPER_SPONSOR ?? 0)} sub="Click for history" /></Link>
+        <Link href="/member/commissions?type=LEVEL"><Stat label="Level Income" value={formatINR(levelIncome)} sub="Click for Level 1 to Level 7 history" /></Link>
+        <Link href="/member/commissions"><Stat label="Total Income" value={formatINR(totalIncome)} sub="Click for all history" /></Link>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
@@ -46,7 +53,7 @@ export default async function CommissionsPage() {
         <CardHeader>
           <CardTitle>Commission Ledger</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sponsor income follows referrals. Level income follows your actual binary-tree downline. A positive 5% admin deduction is applied to gross income.
+            Showing {selectedType === "ALL" ? "all income" : selectedType === "LEVEL" ? "all level income" : selectedType.replaceAll("_", " ").toLowerCase()}. Each row shows the member and date that generated the income.
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -63,14 +70,14 @@ export default async function CommissionsPage() {
               </tr>
             </thead>
             <tbody>
-              {ledger.map((l) => {
+              {filteredLedger.map((l) => {
                 const gross = l.cashAmount.toNumber();
                 const adminDeduction = Math.round(gross * 0.05 * 100) / 100;
                 const net = Math.round((gross - adminDeduction) * 100) / 100;
                 return (
                   <tr key={l.id} className="border-b last:border-0">
                     <td className="px-4 py-2">{l.createdAt.toISOString().slice(0, 10)}</td>
-                    <td className="px-4 py-2">{l.sourceMember.memberId}</td>
+                    <td className="px-4 py-2"><b>{l.sourceMember.memberId}</b><br /><span className="text-xs text-muted-foreground">{l.sourceMember.fullName}</span></td>
                     <td className="px-4 py-2">{l.incomeType.replace(/_/g, " ")}</td>
                     <td className="px-4 py-2">{formatINR(gross)}</td>
                     <td className="px-4 py-2 text-muted-foreground">{formatINR(adminDeduction)}</td>
@@ -81,7 +88,7 @@ export default async function CommissionsPage() {
                   </tr>
                 );
               })}
-              {ledger.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No income yet. Sponsor income follows referrals and level income follows paid IDs placed below you.</td></tr>}
+              {filteredLedger.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No income history for this section yet.</td></tr>}
             </tbody>
           </table>
         </CardContent>

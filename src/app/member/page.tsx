@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
-import { eligibleDrawMembers } from "@/lib/services/draws";
+import { memberDrawEligibility } from "@/lib/services/draws";
 import { BinaryTree } from "@/components/binary-tree";
 
 const kycTone = { APPROVED: "success", PENDING: "warning", REJECTED: "danger", NOT_STARTED: "neutral" } as const;
@@ -12,18 +12,19 @@ const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "w
 
 export default async function MemberDashboard() {
   const me = await currentMember();
-  const [d, eligiblePool, tree, achievers] = await Promise.all([
+  const [d, drawEligibility, tree, achievers, myAchievements] = await Promise.all([
     memberDashboard(me.id),
-    eligibleDrawMembers(),
+    memberDrawEligibility(me.id),
     me.plotId ? downlineTree(me.id, 2) : undefined,
-    prisma.member.findMany({
-      where: { rank: { in: ["BRONZE", "SILVER", "GOLD"] }, isActive: true, NOT: { memberId: "COMPANY" } },
-      select: { memberId: true, fullName: true, rank: true },
-      orderBy: { updatedAt: "desc" },
+    prisma.rankAchievement.findMany({
+      where: { member: { isActive: true, NOT: { memberId: "COMPANY" } } },
+      select: { id: true, rank: true, member: { select: { memberId: true, fullName: true } } },
+      orderBy: { createdAt: "desc" },
       take: 6,
     }),
+    prisma.rankAchievement.findMany({ where: { memberId: me.id }, orderBy: { createdAt: "asc" } }),
   ]);
-  const isDrawEligibleNow = eligiblePool.some((member) => member.id === me.id);
+  const isDrawEligibleNow = drawEligibility.eligible;
   const activeDirectIds = d.directTeam.filter((member) => !!member.plotId);
   const redIds = d.directTeam.filter((member) => !member.plotId);
 
@@ -106,8 +107,8 @@ export default async function MemberDashboard() {
             <Row k="My Member ID" v={me.memberId} />
             <Row k="Mobile Number" v={me.mobile} />
             <Row k="Sponsor ID" v={me.sponsor?.memberId ?? "COMPANY"} />
-            <Row k="Rank" v={<Badge tone={rankTone[me.rank]}>{me.rank}</Badge>} />
-            <Row k="Draw Eligible" v={<Badge tone={isDrawEligibleNow ? "success" : "neutral"}>{isDrawEligibleNow ? "Yes" : "No"}</Badge>} />
+            <Row k="Rank" v={<span className="flex flex-wrap justify-end gap-1">{myAchievements.length ? myAchievements.map((achievement) => <Badge key={achievement.id} tone={rankTone[achievement.rank]}>{achievement.rank}</Badge>) : <Badge tone="neutral">NONE</Badge>}</span>} />
+            <Row k="Draw Eligible" v={<span className="text-right"><Badge tone={isDrawEligibleNow ? "success" : "neutral"}>{isDrawEligibleNow ? "Yes" : "No"}</Badge><span className="mt-1 block max-w-72 text-xs text-muted-foreground">{drawEligibility.reason}</span></span>} />
             <Row k="Team (L / R)" v={`${d.pair.left} / ${d.pair.right}`} />
             <Row k="Pair Rewards" v={d.pair.unlocked.length ? d.pair.unlocked.join(", ") : "Silver at 25+25"} />
           </CardContent>
@@ -174,13 +175,13 @@ export default async function MemberDashboard() {
           <p className="mt-1 text-sm text-muted-foreground">Bronze, Silver, and Gold achievers also run in the top slider for everyone in the system.</p>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          {achievers.map((member) => (
-            <div key={member.memberId} className="flex items-center justify-between rounded-lg border px-3 py-2">
+          {achievers.map((achievement) => (
+            <div key={achievement.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
               <div>
-                <div className="font-semibold">{member.fullName}</div>
-                <div className="text-xs text-muted-foreground">{member.memberId}</div>
+                <div className="font-semibold">{achievement.member.fullName}</div>
+                <div className="text-xs text-muted-foreground">{achievement.member.memberId}</div>
               </div>
-              <Badge tone={rankTone[member.rank]}>{member.rank}</Badge>
+              <Badge tone={rankTone[achievement.rank]}>{achievement.rank}</Badge>
             </div>
           ))}
           {!achievers.length && <div className="py-4 text-center text-muted-foreground">No rank achievers yet.</div>}

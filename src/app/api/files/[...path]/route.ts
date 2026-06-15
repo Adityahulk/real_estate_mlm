@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
 
   const { path: pathParts } = await params;
   const [folder, ownerId] = pathParts;
-  if (member && !admin && ["kyc", "insurance", "receipts"].includes(folder) && ownerId !== member.sub) {
+  if (member && !admin && ["kyc", "insurance", "receipts", "payment-proofs"].includes(folder) && ownerId !== member.sub) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

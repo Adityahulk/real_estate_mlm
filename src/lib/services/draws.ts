@@ -67,6 +67,39 @@ export async function eligibleDrawMembers() {
   });
 }
 
+export async function memberDrawEligibility(memberId: string) {
+  const [member, bookedPlots, triggerPlots] = await Promise.all([
+    prisma.member.findUnique({
+      where: { id: memberId },
+      select: { isActive: true, drawWins: { select: { id: true }, take: 1 } },
+    }),
+    prisma.plot.count({ where: { status: { in: ["BOOKED", "SOLD", "DRAW_WON"] } } }),
+    getNumberSetting("draw_trigger_plots"),
+  ]);
+  if (!member) return { eligible: false, reason: "Member not found" };
+  if (!member.isActive) return { eligible: false, reason: "Member ID is inactive" };
+  if (member.drawWins.length) return { eligible: false, reason: "Previous draw winners do not re-enter" };
+  if (bookedPlots < triggerPlots) return { eligible: false, reason: `Draw opens after ${triggerPlots} booked plots; currently ${bookedPlots}` };
+
+  const now = new Date();
+  const startDay = await getNumberSetting("payment_window_start_day");
+  const endDay = await getNumberSetting("payment_window_end_day");
+  const period = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const windowStart = new Date(period.getFullYear(), period.getMonth(), startDay, 0, 0, 0, 0);
+  const windowEnd = new Date(period.getFullYear(), period.getMonth(), endDay, 23, 59, 59, 999);
+  const payment = await prisma.payment.findFirst({
+    where: { memberId, status: "VERIFIED", paymentDate: { gte: windowStart, lte: windowEnd } },
+    select: { id: true },
+  });
+  if (!payment) {
+    return {
+      eligible: false,
+      reason: `No verified payment between ${windowStart.toISOString().slice(0, 10)} and ${windowEnd.toISOString().slice(0, 10)}`,
+    };
+  }
+  return { eligible: true, reason: "Active ID with a verified payment in the required monthly window" };
+}
+
 export async function conductDraw(args: { conductedById: string; prizes?: DrawPrize[] }) {
   const prizes = args.prizes ?? DEFAULT_DRAW_PRIZES;
   if (!prizes.length) throw new Error("Enter at least one prize");

@@ -295,6 +295,7 @@ model Member {
   supportRequests    SupportRequest[]
   cashbackCredits    CashbackCredit[]
   pairRewards        PairRewardRecord[]
+  rankAchievements   RankAchievement[]
   plotTransfers      PlotTransfer[]
 
   @@index([sponsorId])
@@ -431,6 +432,8 @@ model Payment {
   paymentDate     DateTime      @default(now())
   referenceNumber String?
   receiptUrl      String?
+  proofUrl        String?
+  proofUploadedAt DateTime?
   gatewayTxnId    String?
   status          PaymentStatus @default(PENDING)
   verifiedById    String?
@@ -444,6 +447,17 @@ model Payment {
   payouts     Payout[]
 
   @@index([memberId])
+}
+
+model RankAchievement {
+  id        String     @id @default(uuid())
+  memberId  String
+  member    Member     @relation(fields: [memberId], references: [id])
+  rank      MemberRank
+  createdAt DateTime   @default(now())
+
+  @@unique([memberId, rank])
+  @@index([rank, createdAt])
 }
 
 model CommissionLedger {

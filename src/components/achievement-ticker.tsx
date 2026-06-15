@@ -9,12 +9,23 @@ const rankLabel = {
 export async function AchievementTicker() {
   let achievers: { memberId: string; fullName: string; rank: "BRONZE" | "SILVER" | "GOLD" }[] = [];
   try {
-    achievers = await prisma.member.findMany({
-      where: { rank: { in: ["BRONZE", "SILVER", "GOLD"] }, isActive: true, NOT: { memberId: "COMPANY" } },
-      select: { memberId: true, fullName: true, rank: true },
-      orderBy: { updatedAt: "desc" },
+    const achievements = await prisma.rankAchievement.findMany({
+      where: { member: { isActive: true, NOT: { memberId: "COMPANY" } } },
+      select: { rank: true, member: { select: { memberId: true, fullName: true } } },
+      orderBy: { createdAt: "desc" },
       take: 50,
-    }) as typeof achievers;
+    });
+    achievers = achievements.flatMap((achievement) =>
+      achievement.rank === "NONE"
+        ? []
+        : [
+            {
+              memberId: achievement.member.memberId,
+              fullName: achievement.member.fullName,
+              rank: achievement.rank,
+            },
+          ],
+    );
   } catch {
     return null;
   }

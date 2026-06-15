@@ -121,6 +121,8 @@ export async function requestMemberWithdrawal(memberId: string) {
 
   const requestable = due.filter((payout) => payout.netAmount.gt(payout.paidAmount));
   if (!requestable.length) throw new Error("No pending payout balance is available for withdrawal");
+  const requestedAmount = requestable.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0);
+  if (requestedAmount < 500) throw new Error("Minimum withdrawal amount is ₹500");
 
   await prisma.$transaction(async (tx) => {
     await tx.payout.updateMany({
@@ -132,7 +134,7 @@ export async function requestMemberWithdrawal(memberId: string) {
         memberId,
         type: "PAYOUT_DONE",
         title: "Withdrawal request submitted",
-        message: `Your withdrawal request for ${formatINR(requestable.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0))} has been sent to admin for processing.`,
+        message: `Your withdrawal request for ${formatINR(requestedAmount)} has been sent to admin for processing.`,
         channel: "IN_APP",
         status: "SENT",
         sentAt: new Date(),
@@ -142,7 +144,7 @@ export async function requestMemberWithdrawal(memberId: string) {
 
   return {
     requested: requestable.length,
-    amount: requestable.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0),
+    amount: requestedAmount,
   };
 }
 

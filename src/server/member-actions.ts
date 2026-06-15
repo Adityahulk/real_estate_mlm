@@ -158,3 +158,26 @@ export async function submitAdminRequestAction(_prev: { error?: string; success?
   revalidatePath("/admin/requests");
   return { success: `Admin request submitted. Request ID: ${request.id.slice(0, 8).toUpperCase()}` };
 }
+
+export async function uploadPaymentProofAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const id = await memberId();
+  const paymentId = String(formData.get("paymentId") ?? "");
+  if (!paymentId) return { error: "Payment request not found" };
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!payment || payment.memberId !== id) return { error: "Payment request not found" };
+  if (payment.status !== "PENDING") return { error: "Proof can only be uploaded for a pending payment" };
+
+  try {
+    const proofUrl = await saveFile(formData.get("paymentProof"), `payment-proofs/${id}`);
+    if (!proofUrl) return { error: "Select a PDF or image proof" };
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { proofUrl, proofUploadedAt: new Date() },
+    });
+    revalidatePath("/member/payments");
+    revalidatePath("/admin/payments");
+    return { success: "Payment proof uploaded. Admin can now review it." };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Payment proof upload failed" };
+  }
+}

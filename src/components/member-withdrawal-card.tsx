@@ -24,7 +24,7 @@ export async function MemberWithdrawalCard({ memberId }: { memberId: string }) {
     <Card>
       <CardHeader>
         <CardTitle>Withdrawal</CardTitle>
-        <p className="mt-1 text-sm text-muted-foreground">Request withdrawal for due payout lines. Admin will review and mark the payment after transfer.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Minimum withdrawal is ₹500. Admin will review and mark the payment after transfer.</p>
       </CardHeader>
       <CardContent>
         <div className="mb-4 grid gap-4 sm:grid-cols-2">
@@ -33,11 +33,13 @@ export async function MemberWithdrawalCard({ memberId }: { memberId: string }) {
         </div>
         <StatefulForm action={requestWithdrawalAction} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
-            {withdrawableAmount > 0
+            {withdrawableAmount >= 500
               ? "Only due payouts are included in the request. Held payouts still need approved KYC first."
-              : "No due payout is available right now. New income becomes withdrawable on its payout date."}
+              : withdrawableAmount > 0
+                ? `Available amount is ${formatINR(withdrawableAmount)}. Reach ₹500 to request withdrawal.`
+                : "No due payout is available right now. New income becomes withdrawable on its payout date."}
           </div>
-          <SubmitButton className="w-full sm:w-auto" disabled={withdrawableAmount <= 0} pendingText="Sending request...">
+          <SubmitButton className="w-full sm:w-auto" disabled={withdrawableAmount < 500} pendingText="Sending request...">
             Request Withdrawal
           </SubmitButton>
         </StatefulForm>

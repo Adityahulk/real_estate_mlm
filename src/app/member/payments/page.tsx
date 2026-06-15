@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui
 import { formatINR } from "@/lib/money";
 import { getSetting } from "@/lib/settings";
 import QRCode from "qrcode";
+import { StatefulForm, SubmitButton } from "@/components/form";
+import { uploadPaymentProofAction } from "@/server/member-actions";
 
 const emiTone = { PAID: "success", DUE: "warning", OVERDUE: "danger", UPCOMING: "neutral", WAIVED: "neutral" } as const;
 const paymentTone = { PENDING: "warning", VERIFIED: "success", FAILED: "danger", REFUNDED: "neutral" } as const;
@@ -65,6 +67,17 @@ export default async function PaymentsPage() {
                 <div><span className="text-muted-foreground">Reference</span><br /><b>{payment.referenceNumber ?? "-"}</b></div>
                 <div><span className="text-muted-foreground">Note</span><br /><b>{payment.notes ?? "Pay using company QR and inform admin."}</b></div>
               </div>
+              <StatefulForm action={uploadPaymentProofAction} className="border-t p-3">
+                <input type="hidden" name="paymentId" value={payment.id} />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-sm font-medium">
+                    Upload Online Payment Proof
+                    <input name="paymentProof" type="file" accept=".pdf,image/png,image/jpeg,image/webp" className="mt-1 block w-full rounded-md border bg-card p-2 text-sm" />
+                  </label>
+                  <SubmitButton className="w-full sm:w-auto" pendingText="Uploading...">Upload Proof</SubmitButton>
+                </div>
+                {payment.proofUrl && <a href={payment.proofUrl} target="_blank" className="mt-2 inline-block text-sm font-medium text-brand underline">Open Uploaded Proof</a>}
+              </StatefulForm>
             </details>
           ))}
           {!generatedRequests.length && <div className="py-4 text-center text-sm text-muted-foreground">No generated payment request pending.</div>}

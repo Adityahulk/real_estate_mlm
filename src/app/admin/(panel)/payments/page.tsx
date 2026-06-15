@@ -90,7 +90,10 @@ export default async function AdminPaymentsPage() {
               </summary>
               <div className="grid gap-3 border-t p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                 <div><span className="text-muted-foreground">Mode</span><br /><b>{p.paymentMode.replace("_", " ")}</b></div>
-                <div><span className="text-muted-foreground">Reference</span><br /><b>{p.referenceNumber ?? "-"}</b></div>
+                <div>
+                  <span className="text-muted-foreground">Payment Proof</span><br />
+                  {p.proofUrl ? <a href={p.proofUrl} target="_blank" className="font-semibold text-brand underline">Open Proof</a> : <b>Not uploaded</b>}
+                </div>
                 <div><span className="text-muted-foreground">Notes</span><br /><b>{p.notes ?? "-"}</b></div>
                 <div className="flex items-end">
                   {p.status === "PENDING" ? (

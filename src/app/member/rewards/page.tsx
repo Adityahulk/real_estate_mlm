@@ -7,7 +7,10 @@ const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "w
 
 export default async function RewardsPage() {
   const member = await currentMember();
-  const rewards = await prisma.pairRewardRecord.findMany({ where: { memberId: member.id }, orderBy: { createdAt: "asc" } });
+  const [rewards, achievements] = await Promise.all([
+    prisma.pairRewardRecord.findMany({ where: { memberId: member.id }, orderBy: { createdAt: "asc" } }),
+    prisma.rankAchievement.findMany({ where: { memberId: member.id }, orderBy: { createdAt: "asc" } }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -16,6 +19,18 @@ export default async function RewardsPage() {
         <Stat label="Direct Referrals" value={member.directReferralCount} sub="Bronze bonus eligibility at 11 direct sponsors" />
         <Stat label="Team L / R" value={`${member.leftTeamCount} / ${member.rightTeamCount}`} sub="Old + new downline IDs are counted together" />
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>My Achieved Ranks</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {achievements.map((achievement) => (
+            <Badge key={achievement.id} tone={rankTone[achievement.rank]}>
+              {achievement.rank} · {achievement.createdAt.toISOString().slice(0, 10)}
+            </Badge>
+          ))}
+          {!achievements.length && <span className="text-sm text-muted-foreground">No rank achieved yet.</span>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -31,12 +46,15 @@ export default async function RewardsPage() {
           {(["ACTIVA", "CAR"] as const).map((type) => {
             const reward = rewards.find((r) => r.type === type);
             const meta = PAIR_REWARD_LABELS[type];
+            const achievedByCounts = type === "ACTIVA"
+              ? member.leftTeamCount >= 25 && member.rightTeamCount >= 25
+              : member.leftTeamCount >= 150 && member.rightTeamCount >= 150;
             return (
               <div key={type} className="flex flex-wrap items-center justify-between gap-3 border-b py-3 last:border-0">
                 <span>
                   <b>{meta.rank} Rank</b> · {meta.target} · Gift: {meta.gift}
                 </span>
-                <Badge tone={reward ? "success" : "neutral"}>{reward?.status ?? "LOCKED"}</Badge>
+                <Badge tone={reward || achievedByCounts ? "success" : "neutral"}>{reward?.status ?? (achievedByCounts ? "UNLOCKED" : "LOCKED")}</Badge>
               </div>
             );
           })}

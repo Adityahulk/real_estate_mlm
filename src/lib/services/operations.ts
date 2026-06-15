@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { generateCashbackSchedule } from "../engines/emi";
-import { unlockedPairRewards, visibleRank } from "../engines/eligibility";
+import { achievedRanks, unlockedPairRewards, visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 
 export async function createCashbackCreditsTx(
@@ -95,6 +95,18 @@ export async function syncPairRewards(memberId: string) {
   });
   if (rank !== member.rank) {
     await prisma.member.update({ where: { id: member.id }, data: { rank } });
+  }
+  for (const achievedRank of achievedRanks({
+    directReferralCount: member.directReferralCount,
+    bronzeMinReferrals,
+    leftCount: member.leftTeamCount,
+    rightCount: member.rightTeamCount,
+  })) {
+    await prisma.rankAchievement.upsert({
+      where: { memberId_rank: { memberId, rank: achievedRank } },
+      create: { memberId, rank: achievedRank },
+      update: {},
+    });
   }
   return rewards;
 }

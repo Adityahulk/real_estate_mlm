@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unlockedPairRewards, visibleRank } from "@/lib/engines/eligibility";
+import { achievedRanks, unlockedPairRewards, visibleRank } from "@/lib/engines/eligibility";
 
 describe("rank achievements", () => {
   it("sets bronze from 11 direct sponsors", () => {
@@ -14,5 +14,10 @@ describe("rank achievements", () => {
   it("sets gold from 150 left and 150 right", () => {
     expect(visibleRank({ directReferralCount: 0, bronzeMinReferrals: 11, leftCount: 150, rightCount: 150 })).toBe("GOLD");
     expect(unlockedPairRewards(150, 150)).toEqual(["ACTIVA", "CAR"]);
+  });
+
+  it("keeps every achieved rank after progressing", () => {
+    expect(achievedRanks({ directReferralCount: 11, bronzeMinReferrals: 11, leftCount: 25, rightCount: 25 })).toEqual(["BRONZE", "SILVER"]);
+    expect(achievedRanks({ directReferralCount: 11, bronzeMinReferrals: 11, leftCount: 150, rightCount: 150 })).toEqual(["BRONZE", "SILVER", "GOLD"]);
   });
 });

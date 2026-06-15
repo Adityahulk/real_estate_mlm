@@ -19,6 +19,19 @@ export function visibleRank(args: {
   return "NONE";
 }
 
+export function achievedRanks(args: {
+  directReferralCount: number;
+  bronzeMinReferrals: number;
+  leftCount: number;
+  rightCount: number;
+}): Exclude<VisibleRank, "NONE">[] {
+  const ranks: Exclude<VisibleRank, "NONE">[] = [];
+  if (isBronze(args.directReferralCount, args.bronzeMinReferrals)) ranks.push("BRONZE");
+  if (args.leftCount >= 25 && args.rightCount >= 25) ranks.push("SILVER");
+  if (args.leftCount >= 150 && args.rightCount >= 150) ranks.push("GOLD");
+  return ranks;
+}
+
 export function isDrawEligible(args: {
   kycApproved: boolean;
   isActive: boolean;
