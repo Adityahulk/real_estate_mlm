@@ -9,7 +9,7 @@ import { PageHeading } from "@/components/brand";
 import { FIXED_BOOKING_AMOUNT } from "@/lib/business-rules";
 
 export default async function AdminOverview() {
-  const [o, applications, availablePlots] = await Promise.all([
+  const [o, applications, availablePlots, openRequests] = await Promise.all([
     adminOverview(),
     prisma.memberApplication.findMany({
       where: { status: "PENDING" },
@@ -24,6 +24,7 @@ export default async function AdminOverview() {
       select: { plotNumber: true },
       orderBy: { plotNumber: "asc" },
     }),
+    prisma.supportRequest.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
   ]);
 
   return (
@@ -99,8 +100,9 @@ export default async function AdminOverview() {
           <CardHeader className="p-0"><CardTitle>Quick Actions</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-2 p-0 pt-3 text-sm">
             <Link href="/admin/kyc" className="text-brand-foreground underline">Review pending KYC ({o.pendingKyc})</Link>
-            <Link href="/admin/payments" className="text-brand-foreground underline">Record offline payment</Link>
+            <Link href="/admin/payments" className="text-brand-foreground underline">Generate or verify payment</Link>
             <Link href="/admin/payouts" className="text-brand-foreground underline">Process monthly payout</Link>
+            <Link href="/admin/requests" className="text-brand-foreground underline">Open member requests ({openRequests})</Link>
           </CardContent>
         </Card>
       </div>

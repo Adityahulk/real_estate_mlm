@@ -13,6 +13,7 @@ const items = [
   { href: "/admin/plots", label: "Plots" },
   { href: "/admin/payments", label: "Payments" },
   { href: "/admin/payouts", label: "Payouts" },
+  { href: "/admin/requests", label: "Member Requests" },
   { href: "/admin/business-plan", label: "Business Plan" },
   { href: "/admin/draws", label: "Lucky Draw" },
   { href: "/admin/operations", label: "Operations" },

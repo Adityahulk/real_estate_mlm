@@ -64,16 +64,28 @@ export default async function MemberDashboard() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Pending Income" value={formatINR(d.income.pending)} sub={d.income.onHold > 0 ? `On hold ${formatINR(d.income.onHold)}` : "Due next day"} />
-        <Stat label="Paid Out" value={formatINR(d.income.paidOut)} sub={`Admin charge ${formatINR(d.income.adminDeducted)}`} />
-        <Stat
-          label="Next EMI"
-          value={d.nextEmi ? formatINR(d.nextEmi.amountDue) : "—"}
-          sub={d.nextEmi ? `Pay by ${d.nextEmi.payByDate.toISOString().slice(0, 10)}` : "All cleared"}
-        />
-        <Stat label="Direct Referrals" value={d.rank.directReferrals} sub={`Bronze bonus at ${d.rank.bronzeTarget}`} />
-        <Stat label="Red IDs" value={redIds.length} sub={redIds.length ? "Free IDs waiting for plot activation" : "No pending free IDs"} />
+        <Link href="/member/withdrawal"><Stat label="Pending Income" value={formatINR(d.income.pending)} sub={d.income.onHold > 0 ? `On hold ${formatINR(d.income.onHold)}` : "Due next day"} /></Link>
+        <Link href="/member/commissions"><Stat label="Paid Out" value={formatINR(d.income.paidOut)} sub={`Admin charge ${formatINR(d.income.adminDeducted)}`} /></Link>
+        <Link href="/member/payments">
+          <Stat
+            label="Next EMI"
+            value={d.nextEmi ? formatINR(d.nextEmi.amountDue) : "—"}
+            sub={d.nextEmi ? `Pay by ${d.nextEmi.payByDate.toISOString().slice(0, 10)}` : "All cleared"}
+          />
+        </Link>
+        <Link href="/member/referral"><Stat label="Direct Referrals" value={d.rank.directReferrals} sub={`Bronze bonus at ${d.rank.bronzeTarget}`} /></Link>
+        <Link href="/member/referral"><Stat label="Red IDs" value={redIds.length} sub={redIds.length ? "Free IDs waiting for plot activation" : "No pending free IDs"} /></Link>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Quick Open</CardTitle></CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-4">
+          <Link href="/member/payments" className="rounded-md border p-3 text-sm font-semibold hover:border-brand hover:bg-muted">Payments</Link>
+          <Link href="/member/withdrawal" className="rounded-md border p-3 text-sm font-semibold hover:border-brand hover:bg-muted">Withdrawal</Link>
+          <Link href="/member/admin-request" className="rounded-md border p-3 text-sm font-semibold hover:border-brand hover:bg-muted">Admin Request</Link>
+          <Link href="/member/tree" className="rounded-md border p-3 text-sm font-semibold hover:border-brand hover:bg-muted">My Team</Link>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

@@ -6,6 +6,7 @@ import { getSetting } from "@/lib/settings";
 import QRCode from "qrcode";
 
 const emiTone = { PAID: "success", DUE: "warning", OVERDUE: "danger", UPCOMING: "neutral", WAIVED: "neutral" } as const;
+const paymentTone = { PENDING: "warning", VERIFIED: "success", FAILED: "danger", REFUNDED: "neutral" } as const;
 
 export default async function PaymentsPage() {
   const me = await currentMember();
@@ -18,6 +19,7 @@ export default async function PaymentsPage() {
   ]);
   const companyPaymentQr = companyPaymentData ? await QRCode.toDataURL(companyPaymentData, { width: 320, margin: 1 }) : null;
   const cashbackPaid = payments.some((payment) => payment.paymentType === "CASHBACK_FULL" && payment.status === "VERIFIED");
+  const generatedRequests = payments.filter((payment) => payment.status === "PENDING");
 
   return (
     <div className="space-y-4">
@@ -37,6 +39,35 @@ export default async function PaymentsPage() {
             <p className="mt-2">Include your member ID <b>{me.memberId}</b> in the payment note. Only admin can verify and mark payments as paid.</p>
             {companyPaymentData && <p className="mt-3 break-all rounded-md bg-muted p-2 text-xs">{companyPaymentData}</p>}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Generated Payment Requests</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Open any request to see amount, type, and payment note.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {generatedRequests.map((payment) => (
+            <details key={payment.id} className="rounded-lg border bg-card">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                <div>
+                  <div className="font-semibold">{payment.paymentType.replace("_", " ")}</div>
+                  <div className="text-xs text-muted-foreground">{payment.paymentDate.toISOString().slice(0, 10)}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{formatINR(payment.amount)}</span>
+                  <Badge tone="warning">Pending</Badge>
+                </div>
+              </summary>
+              <div className="grid gap-2 border-t p-3 text-sm sm:grid-cols-3">
+                <div><span className="text-muted-foreground">Mode</span><br /><b>{payment.paymentMode.replace("_", " ")}</b></div>
+                <div><span className="text-muted-foreground">Reference</span><br /><b>{payment.referenceNumber ?? "-"}</b></div>
+                <div><span className="text-muted-foreground">Note</span><br /><b>{payment.notes ?? "Pay using company QR and inform admin."}</b></div>
+              </div>
+            </details>
+          ))}
+          {!generatedRequests.length && <div className="py-4 text-center text-sm text-muted-foreground">No generated payment request pending.</div>}
         </CardContent>
       </Card>
 
@@ -111,17 +142,23 @@ export default async function PaymentsPage() {
         <CardHeader><CardTitle>Payment History</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm">
           {payments.map((p) => (
-            <div key={p.id} className="flex items-center justify-between border-b py-1.5 last:border-0">
-              <span>
-                {p.paymentDate.toISOString().slice(0, 10)} ·{" "}
-                {p.paymentType === "BOOKING" ? "Admin collected booking amount" : p.paymentType} · {p.paymentMode}
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="font-medium">{formatINR(p.amount)}</span>
-                <Badge tone={p.status === "VERIFIED" ? "success" : "neutral"}>{p.status}</Badge>
-                {p.receiptUrl && <a className="text-brand-foreground underline" href={p.receiptUrl} target="_blank">Receipt</a>}
-              </span>
-            </div>
+            <details key={p.id} className="rounded-lg border">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                <span>
+                  {p.paymentDate.toISOString().slice(0, 10)} ·{" "}
+                  {p.paymentType === "BOOKING" ? "Admin collected booking amount" : p.paymentType.replace("_", " ")}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-medium">{formatINR(p.amount)}</span>
+                  <Badge tone={paymentTone[p.status]}>{p.status}</Badge>
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t p-3 text-xs sm:grid-cols-3">
+                <div><span className="text-muted-foreground">Mode</span><br /><b>{p.paymentMode.replace("_", " ")}</b></div>
+                <div><span className="text-muted-foreground">Reference</span><br /><b>{p.referenceNumber ?? "-"}</b></div>
+                <div>{p.receiptUrl ? <a className="text-brand-foreground underline" href={p.receiptUrl} target="_blank">Open Receipt</a> : <span className="text-muted-foreground">Receipt pending</span>}</div>
+              </div>
+            </details>
           ))}
           {payments.length === 0 && <div className="py-4 text-center text-muted-foreground">No payments yet.</div>}
         </CardContent>

@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { FIXED_PLOT_PRICE } from "@/lib/business-rules";
 import { AdminPaymentEntryForm } from "@/components/admin-payment-entry-form";
+import { AdminPaymentRequestForm } from "@/components/admin-payment-request-form";
+import { verifyPendingPaymentAction } from "@/server/admin-actions";
+
+const statusTone = { PENDING: "warning", VERIFIED: "success", FAILED: "danger", REFUNDED: "neutral" } as const;
 
 export default async function AdminPaymentsPage() {
   const [members, openEmis, payments, verifiedPaymentSums] = await Promise.all([
@@ -53,6 +57,16 @@ export default async function AdminPaymentsPage() {
   return (
     <div className="space-y-4">
       <Card>
+        <CardHeader>
+          <CardTitle>Generate Payment Request</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Create a pending payment item for a member. The member can open it from their Payments panel and admin can verify it after payment is received.</p>
+        </CardHeader>
+        <CardContent>
+          <AdminPaymentRequestForm members={paymentMembers} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Record Offline Payment</CardTitle></CardHeader>
         <CardContent>
           <AdminPaymentEntryForm members={paymentMembers} />
@@ -61,31 +75,36 @@ export default async function AdminPaymentsPage() {
 
       <Card>
         <CardHeader><CardTitle>All Payments</CardTitle></CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead className="border-b text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Member</th>
-                <th className="px-4 py-2">Type</th>
-                <th className="px-4 py-2">Mode</th>
-                <th className="px-4 py-2">Amount</th>
-                <th className="px-4 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="px-4 py-2">{p.paymentDate.toISOString().slice(0, 10)}</td>
-                  <td className="px-4 py-2">{p.member.memberId}</td>
-                  <td className="px-4 py-2">{p.paymentType}</td>
-                  <td className="px-4 py-2">{p.paymentMode}</td>
-                  <td className="px-4 py-2">{formatINR(p.amount)}</td>
-                  <td className="px-4 py-2"><Badge tone={p.status === "VERIFIED" ? "success" : "neutral"}>{p.status}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <CardContent className="space-y-2">
+          {payments.map((p) => (
+            <details key={p.id} className="group rounded-lg border bg-card">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                <div>
+                  <div className="font-semibold">{p.member.memberId} · {p.member.fullName}</div>
+                  <div className="text-xs text-muted-foreground">{p.paymentDate.toISOString().slice(0, 10)} · {p.paymentType.replace("_", " ")}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{formatINR(p.amount)}</span>
+                  <Badge tone={statusTone[p.status]}>{p.status}</Badge>
+                </div>
+              </summary>
+              <div className="grid gap-3 border-t p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div><span className="text-muted-foreground">Mode</span><br /><b>{p.paymentMode.replace("_", " ")}</b></div>
+                <div><span className="text-muted-foreground">Reference</span><br /><b>{p.referenceNumber ?? "-"}</b></div>
+                <div><span className="text-muted-foreground">Notes</span><br /><b>{p.notes ?? "-"}</b></div>
+                <div className="flex items-end">
+                  {p.status === "PENDING" ? (
+                    <form action={verifyPendingPaymentAction.bind(null, p.id)}>
+                      <Button type="submit" size="sm">Verify Payment</Button>
+                    </form>
+                  ) : (
+                    <Badge tone={statusTone[p.status]}>{p.status}</Badge>
+                  )}
+                </div>
+              </div>
+            </details>
+          ))}
+          {!payments.length && <div className="py-4 text-center text-sm text-muted-foreground">No payments yet.</div>}
         </CardContent>
       </Card>
     </div>

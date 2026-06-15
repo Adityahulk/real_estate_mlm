@@ -135,11 +135,13 @@ enum InsuranceStatus {
 enum NotificationType {
   EMI_REMINDER
   PAYMENT_VERIFIED
+  PAYMENT_REQUEST
   COMMISSION_EARNED
   KYC_UPDATE
   DRAW_RESULT
   RANK_UPDATE
   PAYOUT_DONE
+  ADMIN_REQUEST_UPDATE
   WELCOME
 }
 
@@ -185,6 +187,23 @@ enum MemberApplicationStatus {
   REJECTED
 }
 
+enum SupportRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportRequestCategory {
+  PAYMENT
+  LOGIN
+  KYC
+  PLOT
+  INCOME
+  TREE
+  OTHER
+}
+
 // ----------------------------- Models -----------------------------
 model User {
   id           String   @id @default(uuid())
@@ -197,13 +216,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  reviewedKyc        MemberKyc[]      @relation("KycReviewer")
-  verifiedPayments   Payment[]        @relation("PaymentVerifier")
-  processedPayouts   Payout[]         @relation("PayoutProcessor")
-  conductedDraws     DrawEvent[]      @relation("DrawConductor")
-  reviewedClaims     InsuranceClaim[] @relation("ClaimReviewer")
-  processedTransfers PlotTransfer[]
-  auditLogs          AuditLog[]
+  reviewedKyc            MemberKyc[]      @relation("KycReviewer")
+  verifiedPayments       Payment[]        @relation("PaymentVerifier")
+  processedPayouts       Payout[]         @relation("PayoutProcessor")
+  conductedDraws         DrawEvent[]      @relation("DrawConductor")
+  reviewedClaims         InsuranceClaim[] @relation("ClaimReviewer")
+  processedTransfers     PlotTransfer[]
+  handledSupportRequests SupportRequest[] @relation("SupportRequestHandler")
+  auditLogs              AuditLog[]
 }
 
 model Plot {
@@ -272,6 +292,7 @@ model Member {
   sponsorDrawBonuses DrawWinner[]       @relation("BonusSponsor")
   insuranceClaims    InsuranceClaim[]
   notifications      Notification[]
+  supportRequests    SupportRequest[]
   cashbackCredits    CashbackCredit[]
   pairRewards        PairRewardRecord[]
   plotTransfers      PlotTransfer[]
@@ -540,6 +561,25 @@ model Notification {
   createdAt DateTime            @default(now())
 
   @@index([memberId])
+}
+
+model SupportRequest {
+  id          String                 @id @default(uuid())
+  memberId    String
+  member      Member                 @relation(fields: [memberId], references: [id])
+  category    SupportRequestCategory @default(OTHER)
+  subject     String
+  message     String
+  status      SupportRequestStatus   @default(OPEN)
+  adminReply  String?
+  handledById String?
+  handledBy   User?                  @relation("SupportRequestHandler", fields: [handledById], references: [id])
+  handledAt   DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([memberId, createdAt])
+  @@index([status, createdAt])
 }
 
 // ----------------------------- Config / audit -----------------------------

@@ -133,3 +133,28 @@ export async function requestWithdrawalAction(_prev: { error?: string; success?:
     return { error: error instanceof Error ? error.message : "Withdrawal request failed" };
   }
 }
+
+const adminRequestSchema = z.object({
+  category: z.enum(["PAYMENT", "LOGIN", "KYC", "PLOT", "INCOME", "TREE", "OTHER"]),
+  subject: z.string().trim().min(3, "Enter a short subject"),
+  message: z.string().trim().min(10, "Describe the issue in at least 10 characters"),
+});
+
+export async function submitAdminRequestAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const id = await memberId();
+  const parsed = adminRequestSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const request = await prisma.supportRequest.create({
+    data: {
+      memberId: id,
+      category: parsed.data.category,
+      subject: parsed.data.subject,
+      message: parsed.data.message,
+    },
+  });
+
+  revalidatePath("/member/admin-request");
+  revalidatePath("/admin/requests");
+  return { success: `Admin request submitted. Request ID: ${request.id.slice(0, 8).toUpperCase()}` };
+}

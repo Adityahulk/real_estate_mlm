@@ -254,6 +254,164 @@ export async function recordOfflinePaymentAction(_prev: { error?: string } | und
   return { error: undefined };
 }
 
+const generatePaymentSchema = z.object({
+  memberId: z.string().min(1),
+  paymentType: z.enum(["EMI", "CASHBACK_FULL"]),
+  emiScheduleId: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export async function generatePaymentRequestAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const uid = await adminId();
+  const parsed = generatePaymentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+  const emiScheduleId = d.emiScheduleId || null;
+
+  try {
+    const member = await prisma.member.findUnique({ where: { id: d.memberId }, include: { plot: true } });
+    if (!member) return { error: "Member not found" };
+
+    let amount = new Prisma.Decimal(0);
+    let message = "";
+
+    if (d.paymentType === "EMI") {
+      if (!emiScheduleId) return { error: "Select the EMI installment to generate" };
+      const emi = await prisma.emiSchedule.findUnique({ where: { id: emiScheduleId } });
+      if (!emi || emi.memberId !== member.id) return { error: "Invalid EMI for selected member" };
+      if (emi.status === "PAID") return { error: "This EMI is already paid" };
+      const existing = await prisma.payment.findFirst({
+        where: { memberId: member.id, emiScheduleId, paymentType: "EMI", status: "PENDING" },
+      });
+      if (existing) return { error: "A pending payment request already exists for this EMI" };
+      amount = emi.amountDue;
+      message = `Admin generated EMI #${emi.installmentNo} payment request for ${amount.toFixed(2)}.`;
+    } else {
+      if (emiScheduleId) return { error: "Do not select EMI for cashback full payment" };
+      if (!member.plot || member.paymentPlan !== "CASHBACK") return { error: "Selected member is not on cashback plan" };
+      const existing = await prisma.payment.findFirst({
+        where: { memberId: member.id, paymentType: "CASHBACK_FULL", status: { in: ["PENDING", "VERIFIED"] } },
+      });
+      if (existing) return { error: "Cashback full payment is already generated or verified" };
+      const paid = await prisma.payment.aggregate({ where: { memberId: member.id, status: "VERIFIED" }, _sum: { amount: true } });
+      amount = member.plot.plotPrice.minus(paid._sum.amount ?? 0);
+      if (amount.lte(0)) return { error: "No cashback balance is pending" };
+      message = `Admin generated cashback full payment request for ${amount.toFixed(2)}.`;
+    }
+
+    const payment = await prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          memberId: member.id,
+          emiScheduleId,
+          paymentType: d.paymentType,
+          amount,
+          paymentMode: "ONLINE",
+          status: "PENDING",
+          notes: d.notes || message,
+        },
+      });
+      await tx.notification.create({
+        data: {
+          memberId: member.id,
+          type: "PAYMENT_REQUEST",
+          title: "Payment request generated",
+          message,
+          channel: "IN_APP",
+          status: "SENT",
+          sentAt: new Date(),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: uid,
+          action: "PAYMENT_REQUEST_GENERATE",
+          entity: "Payment",
+          entityId: created.id,
+          after: { memberId: member.memberId, paymentType: d.paymentType, amount: amount.toFixed(2) },
+        },
+      });
+      return created;
+    });
+
+    revalidatePath("/admin/payments");
+    revalidatePath("/member/payments");
+    revalidatePath("/member/notifications");
+    return { success: `Generated payment request ${payment.id.slice(0, 8)} for ${member.memberId}` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Payment request generation failed" };
+  }
+}
+
+export async function verifyPendingPaymentAction(paymentId: string) {
+  const uid = await adminId();
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId }, select: { status: true } });
+  if (!payment) throw new Error("Payment not found");
+  if (payment.status !== "PENDING") throw new Error("Only pending payments can be verified");
+  await confirmPayment(paymentId, uid);
+  await prisma.auditLog.create({
+    data: { actorId: uid, action: "PAYMENT_REQUEST_VERIFY", entity: "Payment", entityId: paymentId },
+  });
+  revalidatePath("/admin/payments");
+  revalidatePath("/member/payments");
+}
+
+const supportReplySchema = z.object({
+  requestId: z.string().min(1),
+  status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
+  adminReply: z.string().trim().optional(),
+});
+
+export async function updateSupportRequestAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const uid = await adminId();
+  const parsed = supportReplySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const request = await prisma.supportRequest.findUnique({
+    where: { id: d.requestId },
+    include: { member: { select: { memberId: true, fullName: true } } },
+  });
+  if (!request) return { error: "Request not found" };
+
+  await prisma.$transaction([
+    prisma.supportRequest.update({
+      where: { id: d.requestId },
+      data: {
+        status: d.status,
+        adminReply: d.adminReply || null,
+        handledById: uid,
+        handledAt: new Date(),
+      },
+    }),
+    prisma.notification.create({
+      data: {
+        memberId: request.memberId,
+        type: "ADMIN_REQUEST_UPDATE",
+        title: `Admin request ${d.status.replace("_", " ").toLowerCase()}`,
+        message: d.adminReply || `Your request "${request.subject}" is now ${d.status.replace("_", " ").toLowerCase()}.`,
+        channel: "IN_APP",
+        status: "SENT",
+        sentAt: new Date(),
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorId: uid,
+        action: "SUPPORT_REQUEST_UPDATE",
+        entity: "SupportRequest",
+        entityId: d.requestId,
+        after: { memberId: request.member.memberId, status: d.status },
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/requests");
+  revalidatePath("/member/admin-request");
+  revalidatePath("/member/notifications");
+  return { success: `Updated request for ${request.member.memberId}` };
+}
+
 const plotSchema = z.object({
   plotNumber: z.string().min(1),
   developmentCharges: z.coerce.number().min(0).default(0),
