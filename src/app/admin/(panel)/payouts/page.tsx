@@ -34,11 +34,13 @@ export default async function PayoutsPage() {
           <p className="mb-3 text-sm text-muted-foreground">
             Commission is paid out the next day after each verified payment, minus a 5% admin charge.
             Payouts for members whose KYC isn&apos;t approved are held automatically and released when KYC is approved.
+            Members can also submit withdrawal requests from their panel; those payouts move into the requested queue below.
             Transfers are normally processed between the 5th and 10th, and admin can record any payout amount.
           </p>
-          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Stat label="Pending (due)" value={formatINR(s.pending.net)} sub={`${s.pending.count} payout(s)`} />
             <Stat label="Upcoming" value={formatINR(s.upcoming.net)} sub={`${s.upcoming.count} payout(s)`} />
+            <Stat label="Requested" value={formatINR(s.processing.net)} sub={`${s.processing.count} payout(s)`} />
             <Stat label="On Hold (KYC)" value={formatINR(s.onHold.net)} sub={`${s.onHold.count} payout(s)`} />
             <Stat label="Paid (lifetime)" value={formatINR(s.paid.net)} sub={`${s.paid.count} payout(s)`} />
           </div>

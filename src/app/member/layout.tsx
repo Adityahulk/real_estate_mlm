@@ -10,6 +10,7 @@ const items = [
   { href: "/member/plot", label: "My Plot" },
   { href: "/member/payments", label: "Payments & EMI" },
   { href: "/member/commissions", label: "Points & Income" },
+  { href: "/member/withdrawal", label: "Withdrawal" },
   { href: "/member/draws", label: "Lucky Draw" },
   { href: "/member/insurance", label: "Insurance" },
   { href: "/member/notifications", label: "Notifications" },

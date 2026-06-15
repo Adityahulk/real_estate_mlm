@@ -2,6 +2,7 @@ import { currentMember, memberDashboard } from "@/lib/services/queries";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { MemberWithdrawalCard } from "@/components/member-withdrawal-card";
 
 const tone = { PAID: "success", POINTS: "warning", APPROVED: "brand", HOLD: "danger" } as const;
 
@@ -22,7 +23,6 @@ export default async function CommissionsPage() {
     .filter(([type]) => type.startsWith("LEVEL_"))
     .reduce((sum, [, amount]) => sum + amount, 0);
   const totalIncome = ledger.reduce((sum, line) => sum + line.cashAmount.toNumber(), 0);
-
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -39,6 +39,8 @@ export default async function CommissionsPage() {
         <Stat label="Paid Out" value={formatINR(d.income.paidOut)} />
         <Stat label="Admin Charge" value={formatINR(d.income.adminDeducted)} />
       </div>
+
+      <MemberWithdrawalCard memberId={me.id} />
 
       <Card>
         <CardHeader>

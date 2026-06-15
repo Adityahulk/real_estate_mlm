@@ -100,12 +100,15 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
 
       {groups.map((group) => {
         const first = group[0];
-        const eligibleIds = group.filter((p) => p.status === "PENDING" && p.isDue && p.net > p.paid).map((p) => p.id);
+        const eligibleIds = group
+          .filter((p) => (p.status === "PENDING" || p.status === "PROCESSING") && p.isDue && p.net > p.paid)
+          .map((p) => p.id);
         const allSelected = eligibleIds.length > 0 && eligibleIds.every((id) => selected.includes(id));
         const total = group.reduce((sum, p) => sum + p.net, 0);
         const paid = group.reduce((sum, p) => sum + p.paid, 0);
         const pending = group.reduce((sum, p) => sum + Math.max(0, p.net - p.paid), 0);
         const held = group.filter((p) => p.status === "ON_HOLD").reduce((sum, p) => sum + Math.max(0, p.net - p.paid), 0);
+        const requested = group.filter((p) => p.status === "PROCESSING").reduce((sum, p) => sum + Math.max(0, p.net - p.paid), 0);
 
         return (
           <details key={`${first.date}:${first.memberId}`} className="group rounded-xl border bg-card">
@@ -129,7 +132,11 @@ export function PayoutManager({ records }: { records: PayoutRecord[] }) {
                   <span>Total <strong>{formatINR(total)}</strong></span>
                   <span className="text-success">Paid <strong>{formatINR(paid)}</strong></span>
                   <span className="text-warning">Pending <strong>{formatINR(pending)}</strong></span>
-                  {held > 0 && <span className="text-danger">On hold <strong>{formatINR(held)}</strong></span>}
+                  {requested > 0 ? (
+                    <span className="text-brand">Requested <strong>{formatINR(requested)}</strong></span>
+                  ) : held > 0 ? (
+                    <span className="text-danger">On hold <strong>{formatINR(held)}</strong></span>
+                  ) : null}
                 </div>
               </div>
               <ChevronDown aria-hidden="true" className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />

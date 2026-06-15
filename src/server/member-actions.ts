@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getMemberSession } from "@/lib/auth";
 import { encryptPII, last4 } from "@/lib/crypto";
 import { storage } from "@/lib/integrations";
+import { requestMemberWithdrawal } from "@/lib/services/payouts";
 
 async function memberId(): Promise<string> {
   const s = await getMemberSession();
@@ -117,4 +118,18 @@ export async function submitInsuranceClaimAction(_prev: { error?: string; succes
   });
   revalidatePath("/member/insurance");
   return { success: "Insurance claim submitted for admin review" };
+}
+
+export async function requestWithdrawalAction(_prev: { error?: string; success?: string } | undefined) {
+  void _prev;
+  const id = await memberId();
+  try {
+    const result = await requestMemberWithdrawal(id);
+    revalidatePath("/member");
+    revalidatePath("/member/commissions");
+    revalidatePath("/admin/payouts");
+    return { success: `Withdrawal request sent for ${result.requested} payout line(s), total ${result.amount.toFixed(2)}.` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Withdrawal request failed" };
+  }
 }

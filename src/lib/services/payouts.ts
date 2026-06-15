@@ -5,9 +5,10 @@ import { Prisma, PayoutMode } from "@prisma/client";
 // Lists payouts grouped by status for the admin screen.
 export async function payoutSummary() {
   const dueBy = endOfToday();
-  const [pending, upcoming, onHold, paid] = await Promise.all([
+  const [pending, upcoming, processing, onHold, paid] = await Promise.all([
     prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { lte: dueBy } }, select: { netAmount: true, paidAmount: true } }),
     prisma.payout.findMany({ where: { status: "PENDING", payoutDate: { gt: dueBy } }, select: { netAmount: true, paidAmount: true } }),
+    prisma.payout.findMany({ where: { status: "PROCESSING" }, select: { netAmount: true, paidAmount: true } }),
     prisma.payout.findMany({ where: { status: "ON_HOLD" }, select: { netAmount: true, paidAmount: true } }),
     prisma.payout.findMany({ where: { status: "PAID" }, select: { netAmount: true } }),
   ]);
@@ -27,6 +28,7 @@ export async function payoutSummary() {
   return {
     pending: { count: pending.length, net: sumRemaining(pending) },
     upcoming: { count: upcoming.length, net: sumRemaining(upcoming) },
+    processing: { count: processing.length, net: sumRemaining(processing) },
     onHold: { count: onHold.length, net: sumRemaining(onHold) },
     paid: { count: paid.length, net: paid.reduce((sum, row) => sum + row.netAmount.toNumber(), 0) },
     recent,
@@ -44,7 +46,7 @@ export async function processDuePayouts(args: {
 
   const due = await prisma.payout.findMany({
     where: {
-      status: "PENDING",
+      status: { in: ["PENDING", "PROCESSING"] },
       payoutDate: { lte: endOfToday() },
       id: { in: args.payoutIds },
     },
@@ -103,6 +105,45 @@ export async function processDuePayouts(args: {
   }
 
   return { processed, paidNow: args.amountToPay - remainingToAllocate.toNumber() };
+}
+
+export async function requestMemberWithdrawal(memberId: string) {
+  const due = await prisma.payout.findMany({
+    where: {
+      memberId,
+      status: "PENDING",
+      payoutDate: { lte: endOfToday() },
+    },
+    select: { id: true, netAmount: true, paidAmount: true },
+  });
+
+  if (!due.length) throw new Error("No due payout is available for withdrawal right now");
+
+  const requestable = due.filter((payout) => payout.netAmount.gt(payout.paidAmount));
+  if (!requestable.length) throw new Error("No pending payout balance is available for withdrawal");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payout.updateMany({
+      where: { id: { in: requestable.map((payout) => payout.id) } },
+      data: { status: "PROCESSING" },
+    });
+    await tx.notification.create({
+      data: {
+        memberId,
+        type: "PAYOUT_DONE",
+        title: "Withdrawal request submitted",
+        message: `Your withdrawal request for ${formatINR(requestable.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0))} has been sent to admin for processing.`,
+        channel: "IN_APP",
+        status: "SENT",
+        sentAt: new Date(),
+      },
+    });
+  });
+
+  return {
+    requested: requestable.length,
+    amount: requestable.reduce((sum, payout) => sum + Math.max(0, payout.netAmount.toNumber() - payout.paidAmount.toNumber()), 0),
+  };
 }
 
 // When a member's KYC is approved, release their held payouts to PENDING.
