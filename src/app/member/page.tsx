@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { currentMember, downlineTree, memberDashboard } from "@/lib/services/queries";
+import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, Stat, Badge, Button } from "@/components/ui";
 import { formatINR } from "@/lib/money";
 import { PageHeading } from "@/components/brand";
@@ -11,8 +12,20 @@ const rankTone = { NONE: "neutral", BRONZE: "brand", SILVER: "success", GOLD: "w
 
 export default async function MemberDashboard() {
   const me = await currentMember();
-  const [d, eligiblePool, tree] = await Promise.all([memberDashboard(me.id), eligibleDrawMembers(), me.plotId ? downlineTree(me.id, 2) : undefined]);
+  const [d, eligiblePool, tree, achievers] = await Promise.all([
+    memberDashboard(me.id),
+    eligibleDrawMembers(),
+    me.plotId ? downlineTree(me.id, 2) : undefined,
+    prisma.member.findMany({
+      where: { rank: { in: ["BRONZE", "SILVER", "GOLD"] }, isActive: true, NOT: { memberId: "COMPANY" } },
+      select: { memberId: true, fullName: true, rank: true },
+      orderBy: { updatedAt: "desc" },
+      take: 6,
+    }),
+  ]);
   const isDrawEligibleNow = eligiblePool.some((member) => member.id === me.id);
+  const activeDirectIds = d.directTeam.filter((member) => !!member.plotId);
+  const redIds = d.directTeam.filter((member) => !member.plotId);
 
   return (
     <div className="space-y-5">
@@ -50,7 +63,7 @@ export default async function MemberDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Pending Income" value={formatINR(d.income.pending)} sub={d.income.onHold > 0 ? `On hold ${formatINR(d.income.onHold)}` : "Due next day"} />
         <Stat label="Paid Out" value={formatINR(d.income.paidOut)} sub={`Admin charge ${formatINR(d.income.adminDeducted)}`} />
         <Stat
@@ -59,6 +72,7 @@ export default async function MemberDashboard() {
           sub={d.nextEmi ? `Pay by ${d.nextEmi.payByDate.toISOString().slice(0, 10)}` : "All cleared"}
         />
         <Stat label="Direct Referrals" value={d.rank.directReferrals} sub={`Bronze bonus at ${d.rank.bronzeTarget}`} />
+        <Stat label="Red IDs" value={redIds.length} sub={redIds.length ? "Free IDs waiting for plot activation" : "No pending free IDs"} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -91,32 +105,73 @@ export default async function MemberDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
-            <CardTitle>My Direct Team ({d.directTeam.length})</CardTitle>
+            <CardTitle>Paid Direct IDs ({activeDirectIds.length})</CardTitle>
             <Link href="/member/referral"><Button size="sm" variant="outline">Open Refer &amp; Earn</Button></Link>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Paid IDs are active in the binary structure. Free IDs remain visible here until admin activates their plot.</p>
+          <p className="mt-1 text-sm text-muted-foreground">These direct referrals are already activated in the paid binary structure.</p>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          {d.directTeam.map((member) => {
-            const paid = !!member.plotId;
-            return (
-              <Link
-                key={member.id}
-                href={paid ? `/member/tree?root=${encodeURIComponent(member.memberId)}` : "/member/referral"}
-                className={`rounded-lg border p-3 transition hover:border-brand ${paid ? "border-success/40 bg-success/5" : "border-danger/40 bg-danger/5"}`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-bold">{member.memberId}</div>
-                    <div className="text-sm">{member.fullName}</div>
-                    <div className="text-xs text-muted-foreground">{member.mobile}</div>
-                  </div>
-                  <Badge tone={paid ? "success" : "danger"}>{paid ? "Active / Paid" : "Free / Inactive"}</Badge>
+          {activeDirectIds.map((member) => (
+            <Link
+              key={member.id}
+              href={`/member/tree?root=${encodeURIComponent(member.memberId)}`}
+              className="rounded-lg border border-success/40 bg-success/5 p-3 transition hover:border-brand"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold">{member.memberId}</div>
+                  <div className="text-sm">{member.fullName}</div>
+                  <div className="text-xs text-muted-foreground">{member.mobile}</div>
                 </div>
-              </Link>
-            );
-          })}
-          {!d.directTeam.length && <div className="py-4 text-sm text-muted-foreground">No direct team members yet.</div>}
+                <Badge tone="success">Active / Paid</Badge>
+              </div>
+            </Link>
+          ))}
+          {!activeDirectIds.length && <div className="py-4 text-sm text-muted-foreground">No paid direct IDs yet.</div>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Red IDs ({redIds.length})</CardTitle>
+            <Link href="/member/referral"><Button size="sm" variant="outline">Open Pending Referrals</Button></Link>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">These free IDs are already linked to you. Admin can activate them later by collecting payment and assigning a plot number.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {redIds.map((member) => (
+            <div key={member.id} className="rounded-lg border border-danger/40 bg-danger/5 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold">{member.memberId}</div>
+                  <div className="text-sm">{member.fullName}</div>
+                  <div className="text-xs text-muted-foreground">{member.mobile}</div>
+                </div>
+                <Badge tone="danger">Red ID</Badge>
+              </div>
+            </div>
+          ))}
+          {!redIds.length && <div className="py-4 text-sm text-muted-foreground">No Red IDs waiting for activation.</div>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Latest Rank Achievers</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">Bronze, Silver, and Gold achievers also run in the top slider for everyone in the system.</p>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {achievers.map((member) => (
+            <div key={member.memberId} className="flex items-center justify-between rounded-lg border px-3 py-2">
+              <div>
+                <div className="font-semibold">{member.fullName}</div>
+                <div className="text-xs text-muted-foreground">{member.memberId}</div>
+              </div>
+              <Badge tone={rankTone[member.rank]}>{member.rank}</Badge>
+            </div>
+          ))}
+          {!achievers.length && <div className="py-4 text-center text-muted-foreground">No rank achievers yet.</div>}
         </CardContent>
       </Card>
 

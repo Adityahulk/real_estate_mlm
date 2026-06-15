@@ -148,6 +148,53 @@ export async function resetMemberPasswordAction(formData: FormData) {
   revalidatePath("/admin/members");
 }
 
+const adminPasswordRecoverySchema = z.object({
+  memberLookup: z.string().trim().min(1, "Enter Member ID, mobile, or email"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export async function adminPasswordRecoveryAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const uid = await adminId();
+  const parsed = adminPasswordRecoverySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const lookup = parsed.data.memberLookup.trim();
+  const lookupUpper = lookup.toUpperCase();
+  const members = await prisma.member.findMany({
+    where: {
+      OR: [
+        { memberId: { equals: lookupUpper, mode: "insensitive" } },
+        { mobile: lookup },
+        { email: lookup.toLowerCase() },
+      ],
+      NOT: { memberId: "COMPANY" },
+    },
+    select: { id: true, memberId: true, fullName: true },
+    take: 5,
+  });
+
+  if (!members.length) return { error: "Member not found" };
+  if (members.length > 1) return { error: "Multiple IDs match this contact. Reset using the generated Member ID." };
+
+  await prisma.$transaction([
+    prisma.member.update({
+      where: { id: members[0].id },
+      data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorId: uid,
+        action: "MEMBER_PASSWORD_RESET",
+        entity: "Member",
+        entityId: members[0].id,
+        after: { memberId: members[0].memberId, via: "ADMIN_PASSWORD_RECOVERY" },
+      },
+    }),
+  ]);
+  revalidatePath("/admin/members");
+  return { success: `Password updated for ${members[0].memberId} · ${members[0].fullName}` };
+}
+
 const offlineSchema = z.object({
   memberId: z.string().min(1),
   paymentType: z.enum(["EMI", "CASHBACK_FULL"]),
@@ -315,6 +362,66 @@ export async function updatePlotAction(formData: FormData) {
     },
   });
   revalidatePath("/admin/plots");
+}
+
+const plotReassignmentSchema = z.object({
+  memberId: z.string().min(1, "Select a member"),
+  newPlotNumber: z.string().trim().min(1, "Enter the new plot number"),
+});
+
+export async function reassignMemberPlotAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const uid = await adminId();
+  const parsed = plotReassignmentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  try {
+    const plotNumber = parsed.data.newPlotNumber.toUpperCase();
+    const member = await prisma.member.findUnique({
+      where: { id: parsed.data.memberId },
+      include: { plot: true },
+    });
+    if (!member) return { error: "Member not found" };
+    if (!member.plotId || !member.plot) return { error: "This member does not have an assigned plot yet" };
+    const currentPlot = member.plot;
+    if (member.plot.plotNumber === plotNumber) return { error: "Member already has this plot number" };
+
+    const newPlot = await prisma.plot.findUnique({ where: { plotNumber } });
+    if (!newPlot) return { error: "Selected plot number does not exist" };
+    if (newPlot.status !== "AVAILABLE") return { error: "Selected plot is not available" };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.plot.update({
+        where: { id: member.plotId! },
+        data: { status: "AVAILABLE", bookingDate: null },
+      });
+      await tx.plot.update({
+        where: { id: newPlot.id },
+        data: { status: "BOOKED", bookingDate: currentPlot.bookingDate ?? new Date() },
+      });
+      await tx.member.update({
+        where: { id: member.id },
+        data: { plotId: newPlot.id },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: uid,
+          action: "MEMBER_PLOT_REASSIGN",
+          entity: "Member",
+          entityId: member.id,
+          before: { memberId: member.memberId, plotNumber: currentPlot.plotNumber },
+          after: { plotNumber: newPlot.plotNumber },
+        },
+      });
+    });
+
+    revalidatePath("/admin/plots");
+    revalidatePath("/admin/members");
+    revalidatePath("/member");
+    revalidatePath("/member/plot");
+    return { success: `Changed ${member.memberId} from plot ${currentPlot.plotNumber} to ${newPlot.plotNumber}` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Plot change failed" };
+  }
 }
 
 async function saveAdminFile(file: FormDataEntryValue | null, folder: string) {

@@ -27,6 +27,7 @@ export interface RegisterInput {
 export async function createMemberApplication(input: RegisterInput) {
   const referralId = input.sponsorMemberId?.trim().toUpperCase();
   if (!referralId) throw new Error("Sponsor ID is required");
+  const minRef = await getNumberSetting("bronze_min_referrals");
   const sponsor = await prisma.member.findUnique({
     where: { memberId: referralId },
     select: { id: true, isActive: true },
@@ -51,6 +52,11 @@ export async function createMemberApplication(input: RegisterInput) {
         isActive: true,
       },
     });
+    await tx.member.update({
+      where: { id: sponsor.id },
+      data: { directReferralCount: { increment: 1 } },
+    });
+    await syncMemberRankTx(tx, sponsor.id, minRef);
     if (input.nomineeName || input.nomineeRelation || input.nomineePhone) {
       await tx.memberKyc.create({
         data: {
@@ -166,14 +172,6 @@ export async function approveMemberApplication(args: {
         });
         await syncMemberRankTx(tx, ancestor.id, minRef);
       }
-    }
-
-    if (member.sponsorId) {
-      const sponsor = await tx.member.update({
-        where: { id: member.sponsorId },
-        data: { directReferralCount: { increment: 1 } },
-      });
-      await syncMemberRankTx(tx, sponsor.id, minRef);
     }
 
     if (application.paymentPlan === "INSTALLMENT") {

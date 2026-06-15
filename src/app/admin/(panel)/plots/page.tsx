@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, Search } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { bulkCreatePlotsAction, createPlotAction, updatePlotAction, updatePlotDocumentsAction } from "@/server/admin-actions";
+import { bulkCreatePlotsAction, createPlotAction, reassignMemberPlotAction, updatePlotAction, updatePlotDocumentsAction } from "@/server/admin-actions";
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Field, Input, Select } from "@/components/ui";
 import { formatINR } from "@/lib/money";
@@ -11,13 +11,23 @@ const plotTone = { AVAILABLE: "success", BOOKED: "warning", SOLD: "brand", DRAW_
 
 export default async function PlotsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const query = (await searchParams).q?.trim() ?? "";
-  const [plots, totalPlots] = await Promise.all([
+  const [plots, totalPlots, assignedMembers, availablePlots] = await Promise.all([
     prisma.plot.findMany({
       where: query ? { plotNumber: { contains: query, mode: "insensitive" } } : undefined,
       orderBy: { plotNumber: "asc" },
       include: { member: true },
     }),
     prisma.plot.count(),
+    prisma.member.findMany({
+      where: { plotId: { not: null }, NOT: { memberId: "COMPANY" } },
+      select: { id: true, memberId: true, fullName: true, plot: { select: { plotNumber: true } } },
+      orderBy: { memberId: "asc" },
+    }),
+    prisma.plot.findMany({
+      where: { status: "AVAILABLE" },
+      select: { plotNumber: true },
+      orderBy: { plotNumber: "asc" },
+    }),
   ]);
 
   return (
@@ -48,6 +58,35 @@ export default async function PlotsPage({ searchParams }: { searchParams: Promis
             </p>
             <SubmitButton>Add Plots</SubmitButton>
           </StatefulForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Member Plot Number</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Use this when admin needs to move an approved member from one allotted plot number to another available plot number.</p>
+        </CardHeader>
+        <CardContent>
+          <StatefulForm action={reassignMemberPlotAction}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Member">
+                <Select name="memberId">
+                  {assignedMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.memberId} · {member.fullName} · Current {member.plot?.plotNumber ?? "—"}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="New Plot Number">
+                <Input name="newPlotNumber" list="available-plot-options" placeholder="P011" />
+              </Field>
+            </div>
+            <SubmitButton>Change Plot Number</SubmitButton>
+          </StatefulForm>
+          <datalist id="available-plot-options">
+            {availablePlots.map((plot) => <option key={plot.plotNumber} value={plot.plotNumber} />)}
+          </datalist>
         </CardContent>
       </Card>
 

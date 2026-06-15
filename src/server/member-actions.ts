@@ -30,6 +30,9 @@ const kycSchema = z.object({
   accountNumber: z.string().min(4),
   ifscCode: z.string().min(4),
   accountHolderName: z.string().min(1),
+  nomineeName: z.string().optional(),
+  nomineeRelation: z.string().optional(),
+  nomineePhone: z.string().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
 });
 
 export async function submitKycAction(_prev: { error?: string } | undefined, formData: FormData) {
@@ -54,6 +57,9 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       accountLast4: last4(d.accountNumber),
       ifscCode: d.ifscCode,
       accountHolderName: d.accountHolderName,
+      nomineeName: d.nomineeName || null,
+      nomineeRelation: d.nomineeRelation || null,
+      nomineePhone: d.nomineePhone || null,
       aadhaarFrontUrl,
       aadhaarBackUrl,
       panCardUrl,
@@ -66,6 +72,9 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       accountLast4: last4(d.accountNumber),
       ifscCode: d.ifscCode,
       accountHolderName: d.accountHolderName,
+      nomineeName: d.nomineeName || null,
+      nomineeRelation: d.nomineeRelation || null,
+      nomineePhone: d.nomineePhone || null,
       ...(aadhaarFrontUrl && { aadhaarFrontUrl }),
       ...(aadhaarBackUrl && { aadhaarBackUrl }),
       ...(panCardUrl && { panCardUrl }),

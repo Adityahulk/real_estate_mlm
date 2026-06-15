@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
-import { recordOfflinePaymentAction } from "@/server/admin-actions";
-import { StatefulForm, SubmitButton } from "@/components/form";
-import { Card, CardContent, CardHeader, CardTitle, Badge, Field, Input, Select } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { formatINR } from "@/lib/money";
+import { FIXED_PLOT_PRICE } from "@/lib/business-rules";
+import { AdminPaymentEntryForm } from "@/components/admin-payment-entry-form";
 
 export default async function AdminPaymentsPage() {
-  const [members, openEmis, payments] = await Promise.all([
+  const [members, openEmis, payments, verifiedPaymentSums] = await Promise.all([
     prisma.member.findMany({
       where: { NOT: { memberId: "COMPANY" } },
       select: { id: true, memberId: true, fullName: true, paymentPlan: true },
@@ -21,55 +21,41 @@ export default async function AdminPaymentsPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    prisma.payment.groupBy({
+      by: ["memberId"],
+      where: { status: "VERIFIED" },
+      _sum: { amount: true },
+    }),
   ]);
+
+  const paidAmountByMember = new Map(
+    verifiedPaymentSums.map((row) => [row.memberId, row._sum.amount?.toNumber() ?? 0])
+  );
+  const paymentMembers = members.map((member) => {
+    const memberEmis = openEmis
+      .filter((emi) => emi.memberId === member.id)
+      .map((emi) => ({
+        id: emi.id,
+        installmentNo: emi.installmentNo,
+        amount: emi.amountDue.toFixed(2),
+        label: `${emi.member.memberId} · EMI #${emi.installmentNo} · ${formatINR(emi.amountDue)}`,
+      }));
+    const paid = paidAmountByMember.get(member.id) ?? 0;
+    const cashbackRemaining = Math.max(FIXED_PLOT_PRICE - paid, 0).toFixed(2);
+
+    return {
+      ...member,
+      cashbackRemaining,
+      openEmis: memberEmis,
+    };
+  });
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader><CardTitle>Record Offline Payment</CardTitle></CardHeader>
         <CardContent>
-          <StatefulForm action={recordOfflinePaymentAction}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Member">
-                <Select name="memberId">
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.memberId} · {m.fullName}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Payment Type">
-                <Select name="paymentType" defaultValue="EMI">
-                  <option value="EMI">EMI installment</option>
-                  <option value="CASHBACK_FULL">Cashback plan full payment</option>
-                </Select>
-              </Field>
-              <Field label="EMI Installment">
-                <Select name="emiScheduleId" defaultValue="">
-                  <option value="">Select only for EMI payment</option>
-                  {openEmis.map((emi) => (
-                    <option key={emi.id} value={emi.id}>
-                      {emi.member.memberId} · EMI #{emi.installmentNo} · {formatINR(emi.amountDue)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Amount (₹)"><Input name="amount" inputMode="numeric" placeholder="10000" /></Field>
-              <Field label="Payment Mode">
-                <Select name="paymentMode">
-                  <option value="CASH">Cash</option>
-                  <option value="UPI">UPI</option>
-                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                  <option value="OFFLINE">Other Offline</option>
-                </Select>
-              </Field>
-              <Field label="Reference Number"><Input name="referenceNumber" placeholder="UTR / txn id" /></Field>
-              <Field label="Payment Date"><Input name="paymentDate" type="date" /></Field>
-            </div>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Booking payments are recorded during member approval. For an EMI, select its exact installment. For a cashback member, choose full payment and enter the remaining plot balance.
-            </p>
-            <SubmitButton>Verify &amp; Record</SubmitButton>
-          </StatefulForm>
+          <AdminPaymentEntryForm members={paymentMembers} />
         </CardContent>
       </Card>
 
