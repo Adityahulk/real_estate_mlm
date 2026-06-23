@@ -1,6 +1,6 @@
 import { prisma } from "../db";
 import { hashPassword } from "../password";
-import { findBfsPlacement, findSponsorPlacementRoot, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
+import { findBfsPlacement, ancestorIncrements, type TreeNode, type Side } from "../engines/tree";
 import { achievedRanks, visibleRank } from "../engines/eligibility";
 import { getNumberSetting } from "../settings";
 import { generateInstallmentSchedule, addMonths } from "../engines/emi";
@@ -124,16 +124,7 @@ export async function approveMemberApplication(args: {
       select: { id: true, treeParentId: true, treeSide: true, treeLevel: true },
       orderBy: { joinDate: "asc" },
     });
-    const sponsorRows = await tx.member.findMany({ select: { id: true, sponsorId: true } });
-    const sponsorOf = new Map(sponsorRows.map((row) => [row.id, row.sponsorId]));
-    const placementRootId = nodes.length
-      ? findSponsorPlacementRoot({
-          startSponsorId: existingMember.sponsorId,
-          sponsorOf,
-          paidMemberIds: new Set(nodes.map((node) => node.id)),
-          fallbackRootId: nodes[0].id,
-        })
-      : null;
+    const placementRootId = nodes.length ? nodes[0].id : null;
     const placement = placementRootId ? findBfsPlacement(nodes as TreeNode[], placementRootId) : null;
     const treeLevel = placement ? (nodes.find((node) => node.id === placement.parentId)?.treeLevel ?? 0) + 1 : 0;
 
@@ -202,14 +193,11 @@ export async function rebuildPaidBinaryTree() {
   const minRef = await getNumberSetting("bronze_min_referrals");
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(72839402)::text`;
-    const [paidMembers, sponsorRows] = await Promise.all([
-      tx.member.findMany({
-        where: { plotId: { not: null }, NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
-        select: { id: true, sponsorId: true },
-        orderBy: [{ joinDate: "asc" }, { createdAt: "asc" }],
-      }),
-      tx.member.findMany({ select: { id: true, sponsorId: true } }),
-    ]);
+    const paidMembers = await tx.member.findMany({
+      where: { plotId: { not: null }, NOT: { memberId: COMPANY_ROOT_MEMBER_ID } },
+      select: { id: true },
+      orderBy: [{ joinDate: "asc" }, { createdAt: "asc" }],
+    });
     if (!paidMembers.length) return { rebuilt: 0 };
 
     await tx.member.updateMany({
@@ -217,32 +205,22 @@ export async function rebuildPaidBinaryTree() {
       data: { treeParentId: null, treeSide: null, treeLevel: 0, leftTeamCount: 0, rightTeamCount: 0 },
     });
 
-    const sponsorOf = new Map(sponsorRows.map((row) => [row.id, row.sponsorId]));
     const placedNodes: TreeNode[] = [];
-    const paidMemberIds = new Set<string>();
     const levelOf = new Map<string, number>();
 
     for (const member of paidMembers) {
       if (!placedNodes.length) {
         placedNodes.push({ id: member.id, treeParentId: null, treeSide: null });
-        paidMemberIds.add(member.id);
         levelOf.set(member.id, 0);
         continue;
       }
-      const placementRootId = findSponsorPlacementRoot({
-        startSponsorId: member.sponsorId,
-        sponsorOf,
-        paidMemberIds,
-        fallbackRootId: placedNodes[0].id,
-      });
-      const placement = findBfsPlacement(placedNodes, placementRootId);
+      const placement = findBfsPlacement(placedNodes, placedNodes[0].id);
       const treeLevel = (levelOf.get(placement.parentId) ?? 0) + 1;
       await tx.member.update({
         where: { id: member.id },
         data: { treeParentId: placement.parentId, treeSide: placement.side, treeLevel },
       });
       placedNodes.push({ id: member.id, treeParentId: placement.parentId, treeSide: placement.side });
-      paidMemberIds.add(member.id);
       levelOf.set(member.id, treeLevel);
     }
 
