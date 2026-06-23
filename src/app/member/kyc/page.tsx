@@ -32,7 +32,7 @@ export default async function KycPage() {
     <Card>
       <CardHeader>
         <CardTitle>Complete KYC</CardTitle>
-        <p className="mt-1 text-sm text-muted-foreground">KYC is required only before collecting income payouts from the company.</p>
+        <p className="mt-1 text-sm text-muted-foreground">You can complete KYC anytime after creating your member account. It is required before admin releases income payouts.</p>
         {me.kyc?.rejectionReason && (
           <p className="mt-1 text-sm text-danger">Previously rejected: {me.kyc.rejectionReason}</p>
         )}

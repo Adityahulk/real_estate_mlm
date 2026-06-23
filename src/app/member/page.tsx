@@ -43,6 +43,18 @@ export default async function MemberDashboard() {
         </Card>
       )}
 
+      {me.kycStatus !== "APPROVED" && me.kycStatus !== "PENDING" && (
+        <Card className="border-brand/40 bg-brand/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-medium">KYC can be completed anytime</div>
+              <div className="text-sm text-muted-foreground">You do not need to wait for your first income payout. Approved KYC lets admin release future payouts faster.</div>
+            </div>
+            <Link href="/member/kyc"><Button>Complete KYC</Button></Link>
+          </div>
+        </Card>
+      )}
+
       {d.income.onHold > 0 && me.kycStatus !== "APPROVED" && (
         <Card className="border-warning/40 bg-warning/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
