@@ -124,24 +124,12 @@ export async function rejectApplicationAction(applicationId: string) {
 
 export async function rebuildBinaryTreeAction() {
   const uid = await adminId();
-  const treeResult = await rebuildPaidBinaryTree();
-  const recalculation = await recalculateUnpaidCommissions();
+  const result = await rebuildPaidBinaryTree();
   await prisma.auditLog.create({
-    data: {
-      actorId: uid,
-      action: "BINARY_TREE_REBUILD",
-      entity: "Member",
-      after: {
-        rebuilt: treeResult.rebuilt,
-        recalculatedPayments: recalculation.recalculated,
-        preservedSettledPayments: recalculation.skippedSettled,
-      },
-    },
+    data: { actorId: uid, action: "BINARY_TREE_REBUILD", entity: "Member", after: { rebuilt: result.rebuilt } },
   });
   revalidatePath("/admin");
   revalidatePath("/admin/members");
-  revalidatePath("/admin/payouts");
-  revalidatePath("/member/commissions");
 }
 
 export async function resetMemberPasswordAction(formData: FormData) {
