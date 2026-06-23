@@ -27,13 +27,13 @@ async function saveFile(file: FormDataEntryValue | null, folder: string): Promis
 }
 
 const kycSchema = z.object({
-  bankName: z.string().trim().optional(),
-  accountNumber: z.string().trim().optional().refine((value) => !value || value.length >= 4, "Account number must be at least 4 digits"),
-  ifscCode: z.string().trim().optional(),
-  accountHolderName: z.string().trim().optional(),
-  nomineeName: z.string().trim().optional(),
-  nomineeRelation: z.string().trim().optional(),
-  nomineePhone: z.string().trim().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
+  bankName: z.string().min(1),
+  accountNumber: z.string().min(4),
+  ifscCode: z.string().min(4),
+  accountHolderName: z.string().min(1),
+  nomineeName: z.string().optional(),
+  nomineeRelation: z.string().optional(),
+  nomineePhone: z.string().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
 });
 
 export async function submitKycAction(_prev: { error?: string } | undefined, formData: FormData) {
@@ -53,11 +53,11 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
     where: { memberId: id },
     create: {
       memberId: id,
-      bankName: d.bankName || null,
-      accountNumber: d.accountNumber ? encryptPII(d.accountNumber) : null,
-      accountLast4: d.accountNumber ? last4(d.accountNumber) : null,
-      ifscCode: d.ifscCode || null,
-      accountHolderName: d.accountHolderName || null,
+      bankName: d.bankName,
+      accountNumber: encryptPII(d.accountNumber),
+      accountLast4: last4(d.accountNumber),
+      ifscCode: d.ifscCode,
+      accountHolderName: d.accountHolderName,
       nomineeName: d.nomineeName || null,
       nomineeRelation: d.nomineeRelation || null,
       nomineePhone: d.nomineePhone || null,
@@ -68,11 +68,11 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       status: "PENDING",
     },
     update: {
-      bankName: d.bankName || null,
-      accountNumber: d.accountNumber ? encryptPII(d.accountNumber) : null,
-      accountLast4: d.accountNumber ? last4(d.accountNumber) : null,
-      ifscCode: d.ifscCode || null,
-      accountHolderName: d.accountHolderName || null,
+      bankName: d.bankName,
+      accountNumber: encryptPII(d.accountNumber),
+      accountLast4: last4(d.accountNumber),
+      ifscCode: d.ifscCode,
+      accountHolderName: d.accountHolderName,
       nomineeName: d.nomineeName || null,
       nomineeRelation: d.nomineeRelation || null,
       nomineePhone: d.nomineePhone || null,

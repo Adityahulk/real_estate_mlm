@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findBfsPlacement, ancestorIncrements, buildSponsorChain, type TreeNode } from "@/lib/engines/tree";
+import { findBfsPlacement, findSponsorPlacementRoot, ancestorIncrements, buildSponsorChain, type TreeNode } from "@/lib/engines/tree";
 import { nextMemberId } from "@/lib/services/members";
 
 describe("binary tree BFS placement", () => {
@@ -40,6 +40,24 @@ describe("auto-generated member IDs", () => {
   it("starts at SSV000001 and increments predictably", () => {
     expect(nextMemberId()).toBe("SSV000001");
     expect(nextMemberId("SSV000019")).toBe("SSV000020");
+  });
+});
+
+describe("sponsor subtree placement root", () => {
+  const sponsorOf = new Map<string, string | null>([
+    ["free-child", "paid-sponsor"],
+    ["paid-sponsor", "root"],
+    ["free-sponsor", "paid-sponsor"],
+    ["root", null],
+  ]);
+  const paidMemberIds = new Set(["root", "paid-sponsor"]);
+
+  it("starts placement from the direct paid sponsor", () => {
+    expect(findSponsorPlacementRoot({ startSponsorId: "paid-sponsor", sponsorOf, paidMemberIds, fallbackRootId: "root" })).toBe("paid-sponsor");
+  });
+
+  it("uses the nearest paid sponsor above a free sponsor", () => {
+    expect(findSponsorPlacementRoot({ startSponsorId: "free-sponsor", sponsorOf, paidMemberIds, fallbackRootId: "root" })).toBe("paid-sponsor");
   });
 });
 
