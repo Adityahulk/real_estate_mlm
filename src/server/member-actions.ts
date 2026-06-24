@@ -27,13 +27,13 @@ async function saveFile(file: FormDataEntryValue | null, folder: string): Promis
 }
 
 const kycSchema = z.object({
-  bankName: z.string().min(1),
-  accountNumber: z.string().min(4),
-  ifscCode: z.string().min(4),
-  accountHolderName: z.string().min(1),
-  nomineeName: z.string().optional(),
-  nomineeRelation: z.string().optional(),
-  nomineePhone: z.string().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
+  bankName: z.string().trim().min(1, "Enter bank name"),
+  accountNumber: z.string().trim().min(4, "Enter bank account number"),
+  ifscCode: z.string().trim().min(4, "Enter IFSC code"),
+  accountHolderName: z.string().trim().min(1, "Enter account holder name"),
+  nomineeName: z.string().trim().min(1, "Enter nominee name"),
+  nomineeRelation: z.string().trim().min(1, "Enter nominee relation"),
+  nomineePhone: z.string().trim().regex(/^\d{10}$/, "Nominee mobile must be 10 digits"),
 });
 
 export async function submitKycAction(_prev: { error?: string } | undefined, formData: FormData) {
@@ -41,6 +41,10 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
   const parsed = kycSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  const existing = await prisma.memberKyc.findUnique({ where: { memberId: id } });
+  if (existing?.status === "APPROVED" && !existing.editAllowed) {
+    return { error: "Your KYC is already approved. Contact admin if you need to edit it." };
+  }
 
   const [aadhaarFrontUrl, aadhaarBackUrl, panCardUrl, profilePhotoUrl] = await Promise.all([
     saveFile(formData.get("aadhaarFront"), `kyc/${id}`),
@@ -48,6 +52,9 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
     saveFile(formData.get("panCard"), `kyc/${id}`),
     saveFile(formData.get("profilePhoto"), `kyc/${id}`),
   ]);
+  if (!aadhaarFrontUrl && !existing?.aadhaarFrontUrl) return { error: "Upload Aadhaar front" };
+  if (!aadhaarBackUrl && !existing?.aadhaarBackUrl) return { error: "Upload Aadhaar back" };
+  if (!panCardUrl && !existing?.panCardUrl) return { error: "Upload PAN card" };
 
   await prisma.memberKyc.upsert({
     where: { memberId: id },
@@ -66,6 +73,7 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       panCardUrl,
       profilePhotoUrl,
       status: "PENDING",
+      editAllowed: false,
     },
     update: {
       bankName: d.bankName,
@@ -81,12 +89,25 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
       ...(panCardUrl && { panCardUrl }),
       ...(profilePhotoUrl && { profilePhotoUrl }),
       status: "PENDING",
+      editAllowed: false,
       rejectionReason: null,
+      reviewedById: null,
+      reviewedAt: null,
     },
   });
   await prisma.member.update({ where: { id }, data: { kycStatus: "PENDING" } });
+  await prisma.auditLog.create({
+    data: {
+      action: "MEMBER_KYC_SUBMIT",
+      entity: "MemberKyc",
+      entityId: id,
+      after: { memberId: id },
+    },
+  });
+  revalidatePath("/admin/kyc");
   revalidatePath("/member/kyc");
-  return { error: undefined };
+  revalidatePath("/member");
+  return { success: "KYC submitted. Admin has been notified for review." };
 }
 
 const insuranceSchema = z.object({

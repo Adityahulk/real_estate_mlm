@@ -11,6 +11,7 @@ import { conductDraw, markDrawPrizeClaimed } from "@/lib/services/draws";
 import { approveInsuranceClaim, processDueCashbacks, syncAllPairRewards, transferMemberPlot, updateEmiStatusesAndReminders } from "@/lib/services/operations";
 import { hashPassword } from "@/lib/password";
 import { storage } from "@/lib/integrations";
+import { encryptPII, last4 } from "@/lib/crypto";
 // formatINR removed — processDuePayouts no longer returns paidNow amount
 import { Prisma } from "@prisma/client";
 import { SETTING_META, type SettingKey } from "@/lib/settings";
@@ -29,7 +30,7 @@ export async function approveKycAction(memberId: string) {
   await prisma.$transaction(async (tx) => {
     await tx.memberKyc.update({
       where: { memberId },
-      data: { status: "APPROVED", reviewedById: uid, reviewedAt: new Date(), rejectionReason: null },
+      data: { status: "APPROVED", reviewedById: uid, reviewedAt: new Date(), rejectionReason: null, editAllowed: false },
     });
     await tx.member.update({ where: { id: memberId }, data: { kycStatus: "APPROVED" } });
     await recomputeEligibilityTx(tx, memberId);
@@ -43,6 +44,8 @@ export async function approveKycAction(memberId: string) {
     data: { memberId, type: "KYC_UPDATE", title: "KYC approved", message: "Your KYC is approved. Held income payouts can now be released.", channel: "IN_APP", status: "SENT", sentAt: new Date() },
   });
   revalidatePath("/admin/kyc");
+  revalidatePath("/member/kyc");
+  revalidatePath("/member");
 }
 
 export async function rejectKycAction(memberId: string, reason: string) {
@@ -50,7 +53,7 @@ export async function rejectKycAction(memberId: string, reason: string) {
   await prisma.$transaction(async (tx) => {
     await tx.memberKyc.update({
       where: { memberId },
-      data: { status: "REJECTED", reviewedById: uid, reviewedAt: new Date(), rejectionReason: reason },
+      data: { status: "REJECTED", reviewedById: uid, reviewedAt: new Date(), rejectionReason: reason, editAllowed: true },
     });
     await tx.member.update({ where: { id: memberId }, data: { kycStatus: "REJECTED" } });
     await tx.auditLog.create({
@@ -61,12 +64,83 @@ export async function rejectKycAction(memberId: string, reason: string) {
     data: { memberId, type: "KYC_UPDATE", title: "KYC rejected", message: `Your KYC was rejected: ${reason}`, channel: "IN_APP", status: "SENT", sentAt: new Date() },
   });
   revalidatePath("/admin/kyc");
+  revalidatePath("/member/kyc");
+  revalidatePath("/member");
 }
 
 export async function rejectKycFormAction(formData: FormData) {
   const memberId = formData.get("memberId") as string;
   const reason = (formData.get("reason") as string) || "Documents not clear";
   await rejectKycAction(memberId, reason);
+}
+
+const adminKycSchema = z.object({
+  memberId: z.string().min(1),
+  bankName: z.string().trim().optional(),
+  accountHolderName: z.string().trim().optional(),
+  accountNumber: z.string().trim().optional(),
+  ifscCode: z.string().trim().optional(),
+  nomineeName: z.string().trim().optional(),
+  nomineeRelation: z.string().trim().optional(),
+  nomineePhone: z.string().trim().optional().refine((value) => !value || /^\d{10}$/.test(value), "Nominee mobile must be 10 digits"),
+});
+
+export async function updateMemberKycByAdminAction(_prev: { error?: string; success?: string } | undefined, formData: FormData) {
+  const uid = await adminId();
+  const parsed = adminKycSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+  const member = await prisma.member.findUnique({ where: { id: d.memberId }, select: { id: true, memberId: true } });
+  if (!member) return { error: "Member not found" };
+  const data = {
+    bankName: d.bankName || null,
+    accountHolderName: d.accountHolderName || null,
+    ...(d.accountNumber ? { accountNumber: encryptPII(d.accountNumber), accountLast4: last4(d.accountNumber) } : {}),
+    ifscCode: d.ifscCode || null,
+    nomineeName: d.nomineeName || null,
+    nomineeRelation: d.nomineeRelation || null,
+    nomineePhone: d.nomineePhone || null,
+  };
+  await prisma.memberKyc.upsert({
+    where: { memberId: d.memberId },
+    create: { memberId: d.memberId, ...data, status: "PENDING" },
+    update: data,
+  });
+  await prisma.member.updateMany({
+    where: { id: d.memberId, kycStatus: "NOT_STARTED" },
+    data: { kycStatus: "PENDING" },
+  });
+  await prisma.auditLog.create({
+    data: { actorId: uid, action: "ADMIN_KYC_UPDATE", entity: "MemberKyc", entityId: d.memberId, after: { memberId: member.memberId } },
+  });
+  revalidatePath("/admin/kyc");
+  revalidatePath("/member/kyc");
+  revalidatePath("/member");
+  return { success: `KYC details updated for ${member.memberId}` };
+}
+
+export async function allowMemberKycEditAction(memberId: string) {
+  const uid = await adminId();
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { memberId: true } });
+  if (!member) throw new Error("Member not found");
+  await prisma.memberKyc.upsert({
+    where: { memberId },
+    create: { memberId, status: "PENDING", editAllowed: true },
+    update: { editAllowed: true },
+  });
+  await prisma.member.updateMany({
+    where: { id: memberId, kycStatus: "NOT_STARTED" },
+    data: { kycStatus: "PENDING" },
+  });
+  await prisma.auditLog.create({
+    data: { actorId: uid, action: "KYC_EDIT_ACCESS_ALLOW", entity: "MemberKyc", entityId: memberId, after: { memberId: member.memberId } },
+  });
+  await prisma.notification.create({
+    data: { memberId, type: "KYC_UPDATE", title: "KYC edit enabled", message: "Admin has enabled KYC editing in your member panel.", channel: "IN_APP", status: "SENT", sentAt: new Date() },
+  });
+  revalidatePath("/admin/kyc");
+  revalidatePath("/member/kyc");
+  revalidatePath("/member");
 }
 
 const approveApplicationSchema = z.object({
