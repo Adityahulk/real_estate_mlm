@@ -20,7 +20,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         isActive: true,
         NOT: { memberId: "COMPANY" },
         ...(q
-          ? { OR: [{ memberId: { contains: q, mode: "insensitive" } }, { fullName: { contains: q, mode: "insensitive" } }, { mobile: { contains: q } }] }
+          ? { OR: [{ memberId: { contains: q, mode: "insensitive" } }, { fullName: { contains: q, mode: "insensitive" } }, { mobile: { contains: q } }, { email: { contains: q, mode: "insensitive" } }] }
           : {}),
       },
       include: {
@@ -42,7 +42,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
             </div>
             <form className="mt-2" action="/admin/members">
               <input type="hidden" name="view" value="list" />
-              <Input name="q" defaultValue={q} placeholder="Search by ID, name, or mobile..." className="max-w-xs" />
+              <Input name="q" defaultValue={q} placeholder="Search by ID, name, mobile, or email..." className="max-w-xs" />
             </form>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
@@ -52,6 +52,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                   <th className="px-4 py-2">Member ID</th>
                   <th className="px-4 py-2">Name</th>
                   <th className="px-4 py-2">Mobile</th>
+                  <th className="px-4 py-2">Email</th>
                   <th className="px-4 py-2">Referrer</th>
                   <th className="px-4 py-2">Booking</th>
                   <th className="px-4 py-2">KYC</th>
@@ -67,6 +68,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                     <td className="px-4 py-2 font-medium">{m.memberId}</td>
                     <td className="px-4 py-2">{m.fullName}</td>
                     <td className="px-4 py-2">{m.mobile}</td>
+                    <td className="px-4 py-2">{m.email ?? "-"}</td>
                     <td className="px-4 py-2">{m.sponsor?.memberId ?? "-"}</td>
                     <td className="px-4 py-2"><Badge tone={m.payments.length ? "success" : "neutral"}>{m.payments.length ? "PAID" : "UNPAID"}</Badge></td>
                     <td className="px-4 py-2"><Badge tone={kycTone[m.kycStatus]}>{m.kycStatus.replace("_", " ")}</Badge></td>

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getMemberSession } from "@/lib/auth";
 import { encryptPII, last4 } from "@/lib/crypto";
 import { storage } from "@/lib/integrations";
-import { requestMemberWithdrawal } from "@/lib/services/payouts";
+import { releaseHeldPayouts, requestMemberWithdrawal } from "@/lib/services/payouts";
 
 async function memberId(): Promise<string> {
   const s = await getMemberSession();
@@ -27,6 +27,9 @@ async function saveFile(file: FormDataEntryValue | null, folder: string): Promis
 }
 
 const kycSchema = z.object({
+  aadhaarCardNumber: z.string().trim().regex(/^\d{12}$/, "Aadhaar card number must be 12 digits"),
+  aadhaarCardAddress: z.string().trim().min(1, "Enter Aadhaar card address"),
+  panCardNumber: z.string().trim().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/i, "Enter a valid PAN card number").transform((value) => value.toUpperCase()),
   bankName: z.string().trim().min(1, "Enter bank name"),
   accountNumber: z.string().trim().min(4, "Enter bank account number"),
   ifscCode: z.string().trim().min(4, "Enter IFSC code"),
@@ -46,68 +49,76 @@ export async function submitKycAction(_prev: { error?: string } | undefined, for
     return { error: "Your KYC is already approved. Contact admin if you need to edit it." };
   }
 
-  const [aadhaarFrontUrl, aadhaarBackUrl, panCardUrl, profilePhotoUrl] = await Promise.all([
-    saveFile(formData.get("aadhaarFront"), `kyc/${id}`),
-    saveFile(formData.get("aadhaarBack"), `kyc/${id}`),
-    saveFile(formData.get("panCard"), `kyc/${id}`),
-    saveFile(formData.get("profilePhoto"), `kyc/${id}`),
-  ]);
-  if (!aadhaarFrontUrl && !existing?.aadhaarFrontUrl) return { error: "Upload Aadhaar front" };
-  if (!aadhaarBackUrl && !existing?.aadhaarBackUrl) return { error: "Upload Aadhaar back" };
-  if (!panCardUrl && !existing?.panCardUrl) return { error: "Upload PAN card" };
+  const profilePhotoUrl = await saveFile(formData.get("profilePhoto"), `kyc/${id}`);
 
-  await prisma.memberKyc.upsert({
-    where: { memberId: id },
-    create: {
-      memberId: id,
-      bankName: d.bankName,
-      accountNumber: encryptPII(d.accountNumber),
-      accountLast4: last4(d.accountNumber),
-      ifscCode: d.ifscCode,
-      accountHolderName: d.accountHolderName,
-      nomineeName: d.nomineeName || null,
-      nomineeRelation: d.nomineeRelation || null,
-      nomineePhone: d.nomineePhone || null,
-      aadhaarFrontUrl,
-      aadhaarBackUrl,
-      panCardUrl,
-      profilePhotoUrl,
-      status: "PENDING",
-      editAllowed: false,
-    },
-    update: {
-      bankName: d.bankName,
-      accountNumber: encryptPII(d.accountNumber),
-      accountLast4: last4(d.accountNumber),
-      ifscCode: d.ifscCode,
-      accountHolderName: d.accountHolderName,
-      nomineeName: d.nomineeName || null,
-      nomineeRelation: d.nomineeRelation || null,
-      nomineePhone: d.nomineePhone || null,
-      ...(aadhaarFrontUrl && { aadhaarFrontUrl }),
-      ...(aadhaarBackUrl && { aadhaarBackUrl }),
-      ...(panCardUrl && { panCardUrl }),
-      ...(profilePhotoUrl && { profilePhotoUrl }),
-      status: "PENDING",
-      editAllowed: false,
-      rejectionReason: null,
-      reviewedById: null,
-      reviewedAt: null,
-    },
+  const aadhaarNumber = encryptPII(d.aadhaarCardNumber);
+  const panNumber = encryptPII(d.panCardNumber);
+  const accountNumber = encryptPII(d.accountNumber);
+  const reviewedAt = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.memberKyc.upsert({
+      where: { memberId: id },
+      create: {
+        memberId: id,
+        aadhaarCardNumber: aadhaarNumber,
+        aadhaarCardLast4: last4(d.aadhaarCardNumber),
+        aadhaarCardAddress: d.aadhaarCardAddress,
+        panCardNumber: panNumber,
+        panCardLast4: last4(d.panCardNumber),
+        bankName: d.bankName,
+        accountNumber,
+        accountLast4: last4(d.accountNumber),
+        ifscCode: d.ifscCode,
+        accountHolderName: d.accountHolderName,
+        nomineeName: d.nomineeName || null,
+        nomineeRelation: d.nomineeRelation || null,
+        nomineePhone: d.nomineePhone || null,
+        profilePhotoUrl,
+        status: "APPROVED",
+        editAllowed: false,
+        reviewedAt,
+      },
+      update: {
+        aadhaarCardNumber: aadhaarNumber,
+        aadhaarCardLast4: last4(d.aadhaarCardNumber),
+        aadhaarCardAddress: d.aadhaarCardAddress,
+        panCardNumber: panNumber,
+        panCardLast4: last4(d.panCardNumber),
+        bankName: d.bankName,
+        accountNumber,
+        accountLast4: last4(d.accountNumber),
+        ifscCode: d.ifscCode,
+        accountHolderName: d.accountHolderName,
+        nomineeName: d.nomineeName || null,
+        nomineeRelation: d.nomineeRelation || null,
+        nomineePhone: d.nomineePhone || null,
+        ...(profilePhotoUrl && { profilePhotoUrl }),
+        status: "APPROVED",
+        editAllowed: false,
+        rejectionReason: null,
+        reviewedById: null,
+        reviewedAt,
+      },
+    });
+    await tx.member.update({
+      where: { id },
+      data: { kycStatus: "APPROVED", aadhaarNumber, aadhaarLast4: last4(d.aadhaarCardNumber) },
+    });
+    await tx.auditLog.create({
+      data: {
+        action: "MEMBER_KYC_AUTO_APPROVE",
+        entity: "MemberKyc",
+        entityId: id,
+        after: { memberId: id },
+      },
+    });
   });
-  await prisma.member.update({ where: { id }, data: { kycStatus: "PENDING" } });
-  await prisma.auditLog.create({
-    data: {
-      action: "MEMBER_KYC_SUBMIT",
-      entity: "MemberKyc",
-      entityId: id,
-      after: { memberId: id },
-    },
-  });
+  await releaseHeldPayouts(id);
   revalidatePath("/admin/kyc");
   revalidatePath("/member/kyc");
   revalidatePath("/member");
-  return { success: "KYC submitted. Admin has been notified for review." };
+  return { success: "KYC completed and approved." };
 }
 
 const insuranceSchema = z.object({

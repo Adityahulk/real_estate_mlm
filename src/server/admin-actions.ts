@@ -76,6 +76,9 @@ export async function rejectKycFormAction(formData: FormData) {
 
 const adminKycSchema = z.object({
   memberId: z.string().min(1),
+  aadhaarCardNumber: z.string().trim().optional().refine((value) => !value || /^\d{12}$/.test(value), "Aadhaar card number must be 12 digits"),
+  aadhaarCardAddress: z.string().trim().optional(),
+  panCardNumber: z.string().trim().optional().refine((value) => !value || /^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(value), "Enter a valid PAN card number"),
   bankName: z.string().trim().optional(),
   accountHolderName: z.string().trim().optional(),
   accountNumber: z.string().trim().optional(),
@@ -93,6 +96,9 @@ export async function updateMemberKycByAdminAction(_prev: { error?: string; succ
   const member = await prisma.member.findUnique({ where: { id: d.memberId }, select: { id: true, memberId: true } });
   if (!member) return { error: "Member not found" };
   const data = {
+    ...(d.aadhaarCardNumber ? { aadhaarCardNumber: encryptPII(d.aadhaarCardNumber), aadhaarCardLast4: last4(d.aadhaarCardNumber) } : {}),
+    aadhaarCardAddress: d.aadhaarCardAddress || null,
+    ...(d.panCardNumber ? { panCardNumber: encryptPII(d.panCardNumber.toUpperCase()), panCardLast4: last4(d.panCardNumber) } : {}),
     bankName: d.bankName || null,
     accountHolderName: d.accountHolderName || null,
     ...(d.accountNumber ? { accountNumber: encryptPII(d.accountNumber), accountLast4: last4(d.accountNumber) } : {}),
@@ -110,6 +116,12 @@ export async function updateMemberKycByAdminAction(_prev: { error?: string; succ
     where: { id: d.memberId, kycStatus: "NOT_STARTED" },
     data: { kycStatus: "PENDING" },
   });
+  if (d.aadhaarCardNumber) {
+    await prisma.member.update({
+      where: { id: d.memberId },
+      data: { aadhaarNumber: encryptPII(d.aadhaarCardNumber), aadhaarLast4: last4(d.aadhaarCardNumber) },
+    });
+  }
   await prisma.auditLog.create({
     data: { actorId: uid, action: "ADMIN_KYC_UPDATE", entity: "MemberKyc", entityId: d.memberId, after: { memberId: member.memberId } },
   });

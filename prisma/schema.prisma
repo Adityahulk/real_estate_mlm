@@ -335,30 +335,35 @@ model MemberApplication {
 }
 
 model MemberKyc {
-  id                String    @id @default(uuid())
-  memberId          String    @unique
-  member            Member    @relation(fields: [memberId], references: [id])
-  aadhaarFrontUrl   String?
-  aadhaarBackUrl    String?
-  panCardUrl        String?
-  profilePhotoUrl   String?
-  bankName          String?
-  accountNumber     String? // encrypted
-  accountLast4      String?
-  ifscCode          String?
-  accountHolderName String?
-  nomineeName       String?
-  nomineeRelation   String?
-  nomineeAadhaar    String? // encrypted
-  nomineePhone      String?
-  reviewedById      String?
-  reviewedBy        User?     @relation("KycReviewer", fields: [reviewedById], references: [id])
-  reviewedAt        DateTime?
-  rejectionReason   String?
-  editAllowed       Boolean   @default(false)
-  status            KycStatus @default(PENDING)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  memberId           String    @unique
+  member             Member    @relation(fields: [memberId], references: [id])
+  aadhaarFrontUrl    String?
+  aadhaarBackUrl     String?
+  aadhaarCardNumber  String? // encrypted
+  aadhaarCardLast4   String?
+  aadhaarCardAddress String?
+  panCardUrl         String?
+  panCardNumber      String? // encrypted
+  panCardLast4       String?
+  profilePhotoUrl    String?
+  bankName           String?
+  accountNumber      String? // encrypted
+  accountLast4       String?
+  ifscCode           String?
+  accountHolderName  String?
+  nomineeName        String?
+  nomineeRelation    String?
+  nomineeAadhaar     String? // encrypted
+  nomineePhone       String?
+  reviewedById       String?
+  reviewedBy         User?     @relation("KycReviewer", fields: [reviewedById], references: [id])
+  reviewedAt         DateTime?
+  rejectionReason    String?
+  editAllowed        Boolean   @default(false)
+  status             KycStatus @default(PENDING)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model EmiSchedule {

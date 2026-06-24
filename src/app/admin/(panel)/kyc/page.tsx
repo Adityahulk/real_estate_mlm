@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { approveKycAction, rejectKycFormAction, updateMemberKycByAdminAction, allowMemberKycEditAction } from "@/server/admin-actions";
-import { Card, CardContent, CardHeader, CardTitle, Button, Input, Field, Badge } from "@/components/ui";
+import { Card, CardHeader, CardTitle, Button, Input, Field, Badge } from "@/components/ui";
 import { StatefulForm, SubmitButton } from "@/components/form";
 import { decryptPII } from "@/lib/crypto";
 
@@ -17,6 +17,7 @@ export default async function KycReviewPage({ searchParams }: { searchParams: Pr
               { memberId: { contains: q, mode: "insensitive" } },
               { fullName: { contains: q, mode: "insensitive" } },
               { mobile: { contains: q } },
+              { email: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -33,37 +34,37 @@ export default async function KycReviewPage({ searchParams }: { searchParams: Pr
         <CardHeader>
           <CardTitle>KYC Records ({members.length})</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pending reviews: {pendingCount}. Admin can view KYC for every member, approve/reject, edit details, or allow the member to edit from their panel.
+            Pending reviews: {pendingCount}. KYC submitted by members is auto-approved. Admin can view/edit records or allow the member to edit from their panel.
           </p>
           <form action="/admin/kyc" className="mt-3">
-            <Input name="q" defaultValue={q ?? ""} placeholder="Search by member ID, name, or mobile..." className="max-w-sm" />
+            <Input name="q" defaultValue={q ?? ""} placeholder="Search by member ID, name, mobile, or email..." className="max-w-sm" />
           </form>
         </CardHeader>
       </Card>
 
       {members.map((m) => {
         const k = m.kyc;
+        const aadhaarCardNumber = decryptPII(k?.aadhaarCardNumber);
+        const panCardNumber = decryptPII(k?.panCardNumber);
         const accountNumber = decryptPII(k?.accountNumber);
-        const docs = [
-          { label: "Aadhaar Front", url: k?.aadhaarFrontUrl },
-          { label: "Aadhaar Back", url: k?.aadhaarBackUrl },
-          { label: "PAN Card", url: k?.panCardUrl },
-          { label: "Profile Photo", url: k?.profilePhotoUrl },
-        ];
         return (
-          <Card key={m.id}>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle>{m.memberId} · {m.fullName}</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={kycTone[m.kycStatus]}>{m.kycStatus.replace("_", " ")}</Badge>
-                  {k?.editAllowed && <Badge tone="brand">Edit Enabled</Badge>}
-                </div>
+          <details key={m.id} className="proposal-panel rounded-lg shadow-[0_8px_24px_rgba(36,18,5,0.05)]" open={m.kycStatus === "PENDING"}>
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+              <div>
+                <div className="text-base font-bold uppercase">{m.memberId} · {m.fullName}</div>
+                <p className="mt-1 text-sm text-muted-foreground">Mobile: {m.mobile} · Email: {m.email ?? "-"}</p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">Mobile: {m.mobile} · Email: {m.email ?? "-"}</p>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={kycTone[m.kycStatus]}>{m.kycStatus.replace("_", " ")}</Badge>
+                {k?.editAllowed && <Badge tone="brand">Edit Enabled</Badge>}
+                <span className="text-sm font-semibold text-brand-foreground">Open Details</span>
+              </div>
+            </summary>
+            <div className="space-y-4 border-t p-4 pt-3 text-sm sm:p-5 sm:pt-3">
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div>Aadhaar Number: <b>{aadhaarCardNumber ?? (k?.aadhaarCardLast4 ? `********${k.aadhaarCardLast4}` : "-")}</b></div>
+                <div>PAN Number: <b>{panCardNumber ?? (k?.panCardLast4 ? `******${k.panCardLast4}` : "-")}</b></div>
+                <div className="sm:col-span-2 lg:col-span-1">Aadhaar Address: <b>{k?.aadhaarCardAddress ?? "-"}</b></div>
                 <div>Bank: <b>{k?.bankName ?? "-"}</b></div>
                 <div>Account Holder: <b>{k?.accountHolderName ?? "-"}</b></div>
                 <div>Account Number: <b>{accountNumber ?? (k?.accountLast4 ? `****${k.accountLast4}` : "-")}</b></div>
@@ -72,21 +73,21 @@ export default async function KycReviewPage({ searchParams }: { searchParams: Pr
                 <div>Nominee Phone: <b>{k?.nomineePhone ?? "-"}</b></div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {docs.map((d) =>
-                  d.url ? (
-                    <a key={d.label} href={d.url} target="_blank" className="rounded-lg border px-3 py-1.5 text-xs font-medium text-brand-foreground underline">
-                      {d.label}
-                    </a>
-                  ) : (
-                    <span key={d.label} className="rounded-lg border border-dashed px-3 py-1.5 text-xs text-muted-foreground">{d.label} missing</span>
-                  ),
-                )}
-              </div>
-
               <StatefulForm action={updateMemberKycByAdminAction} className="rounded-lg border bg-muted/30 p-3">
                 <input type="hidden" name="memberId" value={m.id} />
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Aadhaar Number"><Input name="aadhaarCardNumber" defaultValue={aadhaarCardNumber ?? ""} inputMode="numeric" maxLength={12} placeholder="12-digit" /></Field>
+                  <Field label="PAN Number"><Input name="panCardNumber" defaultValue={panCardNumber ?? ""} placeholder="ABCDE1234F" /></Field>
+                  <div className="sm:col-span-2">
+                    <Field label="Aadhaar Address">
+                      <textarea
+                        name="aadhaarCardAddress"
+                        defaultValue={k?.aadhaarCardAddress ?? ""}
+                        rows={3}
+                        className="w-full rounded-md border bg-card px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
+                      />
+                    </Field>
+                  </div>
                   <Field label="Bank Name"><Input name="bankName" defaultValue={k?.bankName ?? ""} /></Field>
                   <Field label="Account Holder"><Input name="accountHolderName" defaultValue={k?.accountHolderName ?? ""} /></Field>
                   <Field label="Account Number"><Input name="accountNumber" defaultValue={accountNumber ?? ""} placeholder="Leave blank to keep current" /></Field>
@@ -119,8 +120,8 @@ export default async function KycReviewPage({ searchParams }: { searchParams: Pr
                   </form>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </details>
         );
       })}
 
